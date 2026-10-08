@@ -1,0 +1,2178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主神也加班 · 无限流文字游戏</title>
+<style>
+  :root{
+    --ink:#e8e2d0;
+    --ink-dim:#9a9484;
+    --gold:#d8c487;
+    --cyan:#8fd0d8;
+    --red:#ff5a4a;
+    --panel:rgba(8,11,22,.72);
+    --line:rgba(216,196,135,.28);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+    background:#04060f;
+    color:var(--ink);
+    overflow:hidden;
+  }
+  #stars{position:fixed;inset:0;z-index:0}
+  .nebula{
+    position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:
+      radial-gradient(900px 600px at 78% 12%,rgba(70,90,170,.20),transparent 60%),
+      radial-gradient(700px 500px at 12% 88%,rgba(120,70,150,.14),transparent 60%),
+      radial-gradient(1200px 800px at 50% 50%,rgba(10,14,30,.1),transparent 70%);
+  }
+  /* 电影感暗角与顶部压暗 */
+  .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(120% 92% at 50% 42%,transparent 52%,rgba(2,3,8,.55) 100%);
+    box-shadow:inset 0 0 140px rgba(0,0,0,.55)}
+  .vignette::after{content:"";position:absolute;left:0;right:0;top:0;height:44px;
+    background:linear-gradient(180deg,rgba(2,3,8,.65),transparent)}
+
+  /* —— 副本氛围色：随剧情场景切换 —— */
+  body[data-scene="tv"] .nebula{background:
+    radial-gradient(900px 600px at 78% 12%,rgba(95,115,200,.26),transparent 60%),
+    radial-gradient(700px 500px at 12% 88%,rgba(90,60,150,.16),transparent 60%)}
+  body[data-scene="hospital"] .nebula{background:
+    radial-gradient(900px 600px at 78% 12%,rgba(46,140,132,.22),transparent 60%),
+    radial-gradient(700px 500px at 12% 88%,rgba(26,96,120,.16),transparent 60%)}
+  body[data-scene="mall"] .nebula{background:
+    radial-gradient(900px 600px at 78% 12%,rgba(196,152,66,.22),transparent 60%),
+    radial-gradient(700px 500px at 12% 88%,rgba(150,84,142,.16),transparent 60%)}
+  body[data-scene="meeting"] .nebula{background:
+    radial-gradient(900px 600px at 78% 12%,rgba(122,152,204,.2),transparent 60%),
+    radial-gradient(700px 500px at 12% 88%,rgba(82,92,152,.15),transparent 60%)}
+  body[data-scene^="end_"] .nebula{background:
+    radial-gradient(900px 600px at 78% 12%,rgba(216,168,88,.2),transparent 60%),
+    radial-gradient(700px 500px at 50% 58%,rgba(122,92,164,.17),transparent 62%)}
+
+  /* —— 场景缓慢运镜（Ken Burns）—— */
+  .scene-inner{position:absolute;inset:0;will-change:transform;
+    animation:kenburns 30s ease-in-out 1.2s infinite alternate}
+  @keyframes kenburns{from{transform:scale(1)}to{transform:scale(1.05) translateY(-8px)}}
+
+  /* —— 文本面板装饰 —— */
+  .paper::before{content:"";position:absolute;top:8px;left:8px;width:18px;height:18px;
+    border-top:1px solid var(--line);border-left:1px solid var(--line);opacity:.85}
+  .paper::after{content:"";position:absolute;bottom:8px;right:8px;width:18px;height:18px;
+    border-bottom:1px solid var(--line);border-right:1px solid var(--line);opacity:.85}
+  .node-chapter{display:inline-block;border:1px solid rgba(143,208,216,.35);background:rgba(143,208,216,.06);
+    padding:3px 12px;border-radius:20px}
+  .node-title::after{content:"";display:block;width:56px;height:1px;margin-top:10px;
+    background:linear-gradient(90deg,var(--gold),transparent)}
+
+  /* —— 选项增强 —— */
+  .choice::after{content:"›";position:absolute;right:18px;top:50%;transform:translateY(-56%);
+    color:var(--gold);opacity:0;transition:.22s;font-size:18px;line-height:1}
+  .choice:hover::after{opacity:.9}
+  .choice:active{transform:scale(.985)}
+  .choice.picked{background:rgba(216,196,135,.15);border-color:var(--gold);
+    box-shadow:0 0 22px rgba(216,196,135,.25)}
+
+  /* —— 属性点亮与提示 —— */
+  @keyframes dotPop{0%{transform:scale(.2);opacity:.3}70%{transform:scale(1.4)}100%{transform:scale(1)}}
+  .stat i.on{animation:dotPop .35s ease}
+  .continue-hint{animation:hintPulse 1.8s ease-in-out infinite}
+  @keyframes hintPulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+  /* —— 章节过场动效 —— */
+  .veil-c{animation:veilTrack 1.6s ease both}
+  @keyframes veilTrack{from{letter-spacing:.85em;opacity:0}35%{opacity:1}to{letter-spacing:.5em}}
+  .veil-line{animation:ruleGrow 1.5s .25s ease both}
+  .veil-s{animation:fadeUp 1s .45s ease both}
+
+  /* —— 结局徽章流光 —— */
+  .end-tag{position:relative;overflow:hidden}
+  .end-tag::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
+    background:linear-gradient(100deg,transparent,rgba(255,244,210,.32),transparent);
+    animation:sheen 3.2s ease-in-out infinite}
+  @keyframes sheen{0%{left:-60%}55%,100%{left:135%}}
+
+  /* —— HUD 场景标签 —— */
+  .hud-left{display:flex;align-items:center;gap:12px}
+  .scene-chip{font-size:11.5px;letter-spacing:.25em;color:var(--ink-dim);
+    border:1px solid rgba(255,255,255,.14);padding:4px 12px;border-radius:20px;
+    background:rgba(255,255,255,.03)}
+
+  .screen{position:relative;z-index:2;height:100%;display:none;flex-direction:column}
+  .screen.active{display:flex}
+
+  /* ---------- 标题屏 ---------- */
+  #title-screen{align-items:center;justify-content:center;text-align:center;padding:24px}
+  .title-main{
+    font-size:clamp(48px,9vw,92px);
+    letter-spacing:.3em;
+    text-indent:.3em;
+    color:var(--gold);
+    text-shadow:0 0 40px rgba(216,196,135,.35),0 0 4px rgba(255,240,200,.5);
+    font-weight:700;
+  }
+  .title-sub{
+    margin-top:18px;font-size:15px;letter-spacing:.5em;text-indent:.5em;color:var(--ink-dim);
+  }
+  .title-rule{width:220px;height:1px;margin:34px auto;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .title-desc{max-width:580px;margin:0 auto 40px;line-height:2;color:var(--ink-dim);font-size:14.5px}
+  .menu{display:flex;flex-direction:column;gap:14px;align-items:center}
+  .menu button{
+    width:220px;padding:12px 0;background:transparent;color:var(--ink);
+    border:1px solid var(--line);letter-spacing:.4em;text-indent:.4em;font-size:15px;
+    cursor:pointer;font-family:inherit;transition:.25s;border-radius:2px;
+  }
+  .menu button:hover{background:rgba(216,196,135,.1);border-color:var(--gold);color:var(--gold);box-shadow:0 0 18px rgba(216,196,135,.15)}
+  .menu button:disabled{opacity:.3;cursor:not-allowed}
+  #btn-respawn:not(:disabled){color:var(--red);border-color:var(--red);animation:pulseRed 2s infinite}
+  @keyframes pulseRed{0%,100%{box-shadow:0 0 6px rgba(255,90,74,.2)}50%{box-shadow:0 0 18px rgba(255,90,74,.5)}}
+  .title-foot{position:absolute;bottom:18px;font-size:12px;color:#5b574c;letter-spacing:.2em}
+
+  /* ---------- 回廊 ---------- */
+  #gallery{
+    position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;
+    background:rgba(3,5,12,.86);backdrop-filter:blur(6px);padding:30px;
+  }
+  #gallery.show{display:flex}
+  .gallery-box{width:min(680px,94vw);max-height:86vh;overflow:auto;border:1px solid var(--line);background:rgba(10,14,28,.92);padding:34px 38px;border-radius:4px}
+  .gallery-box h2{text-align:center;color:var(--gold);letter-spacing:.4em;font-weight:500;margin-bottom:6px}
+  .gallery-box .tip{text-align:center;color:var(--ink-dim);font-size:12.5px;margin-bottom:24px;letter-spacing:.15em}
+  .ending-card{border:1px solid rgba(255,255,255,.08);padding:16px 18px;margin-bottom:12px;border-radius:3px;line-height:1.9}
+  .ending-card.locked{opacity:.42}
+  .ending-card .et{color:var(--cyan);letter-spacing:.2em;font-size:14px}
+  .ending-card .ed{color:var(--ink-dim);font-size:13px;margin-top:4px}
+  .gallery-close{display:block;margin:18px auto 0;background:none;border:1px solid var(--line);color:var(--ink);padding:9px 34px;cursor:pointer;font-family:inherit;letter-spacing:.3em;border-radius:2px}
+  .gallery-close:hover{color:var(--gold);border-color:var(--gold)}
+
+  /* ---------- 成就系统 ---------- */
+  #achv-toast{
+    position:fixed;top:0;left:50%;transform:translate(-50%,-120%);z-index:60;
+    display:flex;align-items:center;gap:12px;padding:12px 26px;
+    background:rgba(10,14,28,.95);border:1px solid var(--gold);border-top:none;
+    color:var(--ink);font-size:13.5px;letter-spacing:.14em;border-radius:0 0 4px 4px;
+    box-shadow:0 6px 24px rgba(0,0,0,.5);transition:transform .45s cubic-bezier(.2,.9,.3,1.2);
+    pointer-events:none;white-space:nowrap;
+  }
+  #achv-toast.show{transform:translate(-50%,0)}
+  #achv-toast .medal{color:var(--gold);font-size:17px}
+  #achv-toast .t-name{color:var(--gold)}
+  #achv-toast .t-sub{color:var(--ink-dim);font-size:11.5px;display:block;letter-spacing:.22em;margin-top:2px}
+  .ending-card.achv-done{border-color:rgba(212,175,55,.4)}
+  .ending-card.achv-done .et{color:var(--gold)}
+  .achv-prog{position:fixed;top:14px;right:16px;z-index:8;font-size:11.5px;color:var(--ink-dim);letter-spacing:.25em;
+    background:rgba(4,6,15,.4);border:1px solid rgba(255,255,255,.08);padding:6px 14px;border-radius:2px;backdrop-filter:blur(6px)}
+  .achv-prog b{color:var(--gold);font-weight:normal}
+
+  /* ---------- 游戏屏 ---------- */
+  #game-screen{padding:0 0 26px}
+  .hud{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 30px;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;
+    background:rgba(4,6,15,.38);backdrop-filter:blur(8px);
+  }
+  .hud .chapter{color:var(--gold);letter-spacing:.3em}
+  .stats{display:flex;gap:22px}
+  .stat{display:flex;align-items:center;gap:8px;color:var(--ink-dim);letter-spacing:.2em}
+  .stat .dots{display:flex;gap:4px}
+  .stat i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.14);display:block;transition:.3s}
+  .stat.calm i.on{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+  .stat.talk i.on{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+  .stat.slacker i.on{background:#c9a86a;box-shadow:0 0 8px #c9a86a}
+  .hud-btns button{
+    background:none;border:none;color:var(--ink-dim);cursor:pointer;font-family:inherit;
+    font-size:12.5px;letter-spacing:.2em;margin-left:16px;
+  }
+  .hud-btns button:hover{color:var(--gold)}
+
+  .stage{flex:1;display:flex;align-items:flex-end;justify-content:center;padding:0 20px 24px;overflow:hidden}
+  .paper{
+    position:relative;
+    width:min(900px,94vw);max-height:50vh;overflow-y:auto;
+    background:rgba(7,10,21,.82);
+    border:1px solid rgba(216,196,135,.18);
+    border-radius:6px;
+    padding:26px 44px 22px;
+    box-shadow:0 -12px 50px rgba(0,0,0,.5),0 0 60px rgba(0,0,0,.55),inset 0 0 80px rgba(60,80,140,.06);
+    scrollbar-width:thin;scrollbar-color:rgba(216,196,135,.3) transparent;
+  }
+  .paper::-webkit-scrollbar{width:6px}
+  .paper::-webkit-scrollbar-thumb{background:rgba(216,196,135,.25);border-radius:3px}
+  .node-chapter{color:var(--cyan);font-size:12.5px;letter-spacing:.4em;margin-bottom:8px}
+  .node-title{font-size:23px;letter-spacing:.18em;color:var(--gold);font-weight:600;margin-bottom:14px;text-shadow:0 0 18px rgba(216,196,135,.25)}
+  .node-text{font-size:16.5px;line-height:2;white-space:pre-wrap;color:var(--ink)}
+  .node-text .cursor{display:inline-block;width:8px;height:1em;background:var(--gold);vertical-align:-.12em;margin-left:2px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .continue-hint{text-align:right;color:var(--ink-dim);font-size:12.5px;margin-top:14px;letter-spacing:.25em;min-height:18px}
+
+  .choices{margin-top:26px;display:flex;flex-direction:column;gap:12px}
+  .choice{
+    text-align:left;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.1);
+    color:var(--ink);padding:15px 20px;font-size:15.5px;line-height:1.7;cursor:pointer;
+    font-family:inherit;border-radius:3px;transition:.22s;position:relative;
+    opacity:0;transform:translateY(8px);
+  }
+  .choice.show{opacity:1;transform:none}
+  .choice::before{content:"◇";color:var(--gold);margin-right:12px;font-size:12px;opacity:.7}
+  .choice:hover{background:rgba(216,196,135,.09);border-color:var(--gold);transform:translateX(6px)}
+  .choice.secret{border-color:rgba(143,208,216,.5);background:rgba(143,208,216,.06)}
+  .choice.secret::before{content:"✦";color:var(--cyan)}
+  .choice.secret:hover{background:rgba(143,208,216,.12);border-color:var(--cyan)}
+
+  /* ---------- 结局 ---------- */
+  .end-tag{display:inline-block;border:1px solid var(--gold);color:var(--gold);font-size:12.5px;letter-spacing:.3em;padding:5px 14px;border-radius:20px;margin-bottom:20px}
+  .end-tag.secret{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 22px rgba(143,208,216,.25)}
+  .end-tag.danger{border-color:var(--red);color:var(--red);box-shadow:0 0 22px rgba(255,80,70,.25)}
+  .end-actions{margin-top:30px;display:flex;gap:14px;flex-wrap:wrap}
+  .end-actions button{
+    flex:1;min-width:150px;background:transparent;border:1px solid var(--line);color:var(--ink);
+    padding:12px 0;cursor:pointer;font-family:inherit;letter-spacing:.3em;font-size:14px;border-radius:2px;transition:.22s;
+  }
+  .end-actions button:hover{color:var(--gold);border-color:var(--gold);background:rgba(216,196,135,.08)}
+  .new-badge{color:var(--cyan);font-size:12.5px;letter-spacing:.25em;margin-left:10px;animation:blink 1.4s infinite}
+
+  .float-gain{position:fixed;font-size:14px;letter-spacing:.15em;pointer-events:none;z-index:50;animation:floatUp 1.1s ease-out forwards;text-shadow:0 0 10px currentColor}
+  @keyframes floatUp{0%{opacity:0;transform:translateY(10px)}20%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
+
+  .audio-ctl{position:fixed;left:18px;bottom:14px;z-index:30;display:flex;gap:8px}
+  .audio-ctl button{
+    background:rgba(8,11,22,.6);border:1px solid var(--line);color:var(--ink-dim);
+    font-family:inherit;font-size:12px;letter-spacing:.18em;padding:6px 13px;
+    border-radius:2px;cursor:pointer;transition:.2s;
+  }
+  .audio-ctl button:hover{color:var(--gold);border-color:var(--gold)}
+  .audio-ctl button.off{opacity:.4}
+
+  /* ============ 演出层 ============ */
+  #fx-canvas{position:fixed;inset:0;z-index:2;pointer-events:none}
+  #scene-set{
+    position:fixed;inset:0;z-index:1;pointer-events:none;
+    opacity:0;transition:opacity 1s ease;will-change:transform,opacity;
+  }
+  #scene-set.on{opacity:1}
+
+  /* —— 序章 · 主神空间 —— */
+  .core{
+    position:absolute;left:50%;top:30%;width:230px;height:230px;transform:translate(-50%,-50%);
+    border-radius:50%;border:2px dashed rgba(143,208,216,.32);
+    box-shadow:0 0 60px rgba(143,208,216,.15),inset 0 0 60px rgba(143,208,216,.08);
+    animation:spin 26s linear infinite,ringPulse 5s ease-in-out infinite;
+  }
+  .core-dot{position:absolute;left:50%;top:30%;width:14px;height:14px;transform:translate(-50%,-50%);
+    border-radius:50%;background:rgba(143,208,216,.85);box-shadow:0 0 26px rgba(143,208,216,.8);
+    animation:haloPulse 2.4s ease-in-out infinite}
+  .punch{
+    position:absolute;left:9%;bottom:44vh;width:158px;height:92px;
+    background:linear-gradient(180deg,#141a2c,#0a0e1c);
+    border:1px solid rgba(143,208,216,.3);border-radius:8px;
+    box-shadow:0 0 30px rgba(80,200,220,.14);
+  }
+  .punch-time{position:absolute;left:50%;top:50%;transform:translate(-50%,-52%);
+    color:#74e2a8;font:17px "Consolas","Courier New",monospace;letter-spacing:.18em;
+    text-shadow:0 0 12px rgba(116,226,168,.8)}
+  .punch::before{
+    content:"请 勿 迟 到";position:absolute;left:50%;top:84%;transform:translate(-50%,0);
+    color:#5b574c;font-size:11px;letter-spacing:.3em;
+  }
+
+  /* —— 第一章 · 午夜凶铃 —— */
+  .tv{
+    position:absolute;left:50%;top:42%;width:min(560px,74vw);aspect-ratio:4/3;
+    transform:translate(-50%,-48%);
+    background:#07090f;border:16px solid #1d1712;border-radius:10px;
+    box-shadow:0 26px 70px rgba(0,0,0,.7),0 0 90px rgba(150,190,255,.1);
+  }
+  .tv-screen{position:absolute;inset:0;overflow:hidden;border-radius:3px;
+    background:radial-gradient(ellipse at 50% 42%,rgba(140,160,200,.18),rgba(40,50,85,.13) 55%,rgba(5,8,16,.92))}
+  .tv-static{
+    position:absolute;inset:-20%;
+    background-image:radial-gradient(rgba(205,220,248,.5) 1px,transparent 1.5px);
+    background-size:10px 10px;opacity:.09;
+    animation:staticShift .26s steps(4) infinite;
+  }
+  @keyframes staticShift{
+    0%{transform:translate(0,0)}25%{transform:translate(-4px,2px)}
+    50%{transform:translate(3px,-3px)}75%{transform:translate(-2px,-2px)}
+    100%{transform:translate(2px,3px)}
+  }
+  .tv-scan{position:absolute;inset:0;
+    background:repeating-linear-gradient(180deg,transparent 0 3px,rgba(180,220,255,.05) 4px);
+    animation:scanMove 5s linear infinite}
+  @keyframes scanMove{to{transform:translateY(24px)}}
+  .tv-well{
+    position:absolute;left:50%;bottom:-4%;width:32%;height:86%;transform:translateX(-50%);
+    background:linear-gradient(180deg,rgba(212,226,246,.92),rgba(212,226,246,.5) 45%,transparent 92%);
+    clip-path:polygon(36% 0,64% 0,100% 100%,0 100%);filter:blur(.4px);
+    animation:haloPulse 6s ease-in-out infinite;
+  }
+  .sil.ghost{left:calc(50% - 62px);width:124px;bottom:40vh;color:#dfe6f0;
+    filter:drop-shadow(0 0 18px rgba(205,220,248,.55));animation:silIn 2s ease both,ghostFloat 7s ease-in-out 2s infinite}
+  @keyframes ghostFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+  /* —— 第二章 · 恐怖医院 —— */
+  .hall-glow{position:absolute;inset:0;background:
+    radial-gradient(600px 420px at 50% 8%,rgba(120,220,210,.10),transparent 65%),
+    linear-gradient(180deg,rgba(20,60,64,.18),transparent 45%)}
+  .hall{
+    position:absolute;left:-20%;right:-20%;bottom:0;height:50vh;
+    background:
+      linear-gradient(92deg,transparent 0 49.8%,rgba(130,230,215,.10) 49.8% 50.2%,transparent 50.2% 100%),
+      linear-gradient(88deg,transparent 0 49.8%,rgba(130,230,215,.10) 49.8% 50.2%,transparent 50.2% 100%),
+      repeating-linear-gradient(180deg,transparent 0 74px,rgba(130,230,215,.10) 0 76px);
+    -webkit-mask:linear-gradient(180deg,transparent,#000 26%);
+    mask:linear-gradient(180deg,transparent,#000 26%);
+    transform:perspective(420px) rotateX(46deg);transform-origin:50% 100%;
+    animation:haloPulse 8s ease-in-out infinite;
+  }
+  .alert{position:absolute;top:9%;right:13%;width:16px;height:16px;border-radius:50%;
+    background:#ff5a4e;box-shadow:0 0 20px #ff5a4e,0 0 50px rgba(255,90,78,.4);
+    animation:alertBlink 1.1s steps(1) infinite}
+  @keyframes alertBlink{0%,55%{opacity:1}56%,100%{opacity:.15}}
+  .sil.nurse{right:9%;width:112px;bottom:42vh;color:#9fb4c4;
+    filter:drop-shadow(0 0 16px rgba(150,200,205,.4));animation:silIn 2s ease both}
+  .bed-sign{position:absolute;left:7%;top:24%;border:1px solid rgba(130,230,215,.3);
+    color:rgba(150,220,210,.75);padding:8px 14px;font-size:13px;letter-spacing:.25em;
+    box-shadow:0 0 22px rgba(130,230,215,.12);animation:haloPulse 4s ease-in-out infinite}
+
+  /* —— 第三章 · 积分商城 —— */
+  .sale-beam{
+    position:absolute;left:-10%;top:-20%;width:52%;height:160%;
+    background:linear-gradient(100deg,transparent,rgba(247,227,161,.13) 40%,rgba(247,227,161,.22) 50%,rgba(247,227,161,.13) 60%,transparent);
+    transform:rotate(12deg);animation:beamSweep 7s ease-in-out infinite;
+  }
+  @keyframes beamSweep{0%,100%{transform:rotate(12deg) translateX(-12%)}50%{transform:rotate(12deg) translateX(26%)}}
+  .tag{
+    position:absolute;background:linear-gradient(135deg,#f7e3a1,#e2b95e);color:#4a3408;
+    padding:7px 12px;border-radius:4px;font-size:15px;letter-spacing:.12em;font-weight:600;
+    box-shadow:0 0 26px rgba(240,210,130,.35);animation:tagBob 4s ease-in-out infinite;
+  }
+  .tag.t1{left:12%;top:24%;transform:rotate(-8deg)}
+  .tag.t2{right:14%;top:34%;transform:rotate(6deg);animation-delay:1.2s}
+  .tag.t3{left:20%;top:58%;transform:rotate(-3deg);animation-delay:2.1s;font-size:13px}
+  @keyframes tagBob{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-10px) rotate(-5deg)}}
+  .tag.t2{animation-name:tagBob2}
+  @keyframes tagBob2{0%,100%{transform:translateY(0) rotate(6deg)}50%{transform:translateY(-12px) rotate(3deg)}}
+  .tag.t3{animation-name:tagBob3}
+  @keyframes tagBob3{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(0deg)}}
+  .sil.ai{left:12%;width:80px;bottom:44vh;color:rgba(143,208,216,.9);
+    filter:drop-shadow(0 0 20px rgba(143,208,216,.7));animation:silIn 2s ease both,ghostFloat 6s ease-in-out 2s infinite}
+
+  /* —— 第四章 · 终面（复盘会） —— */
+  .ppt{
+    position:absolute;left:50%;top:15%;width:min(620px,76vw);aspect-ratio:16/9;
+    transform:translateX(-50%);
+    background:linear-gradient(160deg,#eef1f6,#d8dee8 68%,#c6cdda);
+    border:10px solid #1c2733;border-radius:4px;
+    box-shadow:0 12px 44px rgba(0,0,0,.62),0 0 100px rgba(205,222,255,.13);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2%;
+  }
+  .ppt-title{font-size:clamp(16px,2.6vw,26px);font-weight:700;letter-spacing:.14em;color:#101b2b}
+  .ppt-sub{font-size:clamp(10px,1.4vw,13px);letter-spacing:.2em;color:#4d5a6e}
+  .ppt-bar{width:56%;height:4px;background:linear-gradient(90deg,#2e6db4,#5aa2e0);border-radius:2px}
+  .sil.boss{right:7%;width:150px;bottom:42vh;color:#0c111c;opacity:.94;
+    filter:drop-shadow(0 0 24px rgba(0,0,0,.55));animation:silIn 2s ease both}
+  .podium{position:absolute;right:4%;top:52%;width:200px;height:26px;
+    background:linear-gradient(180deg,#232d3d,#151c29);border-radius:3px;
+    box-shadow:0 10px 30px rgba(0,0,0,.6)}
+
+  /* —— 结局画面 —— */
+  .seal{
+    position:absolute;left:50%;top:34%;transform:translate(-50%,-50%) rotate(-12deg);
+    width:min(240px,46vw);aspect-ratio:1;border:6px solid #d6453c;border-radius:50%;
+    color:#d6453c;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:clamp(18px,3vw,30px);letter-spacing:.35em;text-indent:.35em;line-height:2.1;
+    box-shadow:0 0 70px rgba(214,69,60,.32),inset 0 0 50px rgba(214,69,60,.12);
+    animation:sealDrop 1.6s ease both,haloPulse 5s 1.6s ease-in-out infinite;
+  }
+  @keyframes sealDrop{0%{opacity:0;transform:translate(-50%,-80%) rotate(-12deg) scale(2.2)}60%{opacity:1;transform:translate(-50%,-46%) rotate(-12deg) scale(.94)}100%{opacity:1;transform:translate(-50%,-50%) rotate(-12deg) scale(1)}}
+  .seal-star{font-size:.7em;margin-bottom:6px}
+  .cloud-puff{position:absolute;border-radius:50%;background:rgba(230,238,248,.14);
+    filter:blur(6px);animation:cloudDrift 26s linear infinite}
+  .cloud-puff.p1{width:240px;height:56px;top:30%;left:-10%}
+  .cloud-puff.p2{width:180px;height:44px;top:42%;left:-16%;animation-delay:6s}
+  @keyframes cloudDrift{from{transform:translateX(0)}to{transform:translateX(130vw)}}
+  .loop-a,.loop-b{
+    position:absolute;left:50%;top:34%;width:250px;height:125px;
+    border:2.5px solid rgba(143,208,216,.4);border-radius:125px/62px;
+    box-shadow:0 0 30px rgba(143,208,216,.14);
+  }
+  .loop-a{transform:translate(-50%,-50%) rotate(0)}
+  .loop-b{transform:translate(-50%,-50%) rotate(180deg)}
+  .loop-wrap{position:absolute;left:50%;top:34%;width:250px;height:125px;transform:translate(-50%,-50%);
+    animation:loopPulse 4s ease-in-out infinite}
+  @keyframes loopPulse{0%,100%{opacity:.55}50%{opacity:1}}
+  .big-glyph{
+    position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);
+    font-size:42vmin;color:rgba(216,196,135,.075);line-height:1;
+    font-family:"Noto Serif SC","Songti SC","STSong",serif;
+    text-shadow:0 0 80px rgba(216,196,135,.25);animation:glyphBreath 8s ease-in-out infinite;
+  }
+  @keyframes glyphBreath{0%,100%{opacity:.7}50%{opacity:1}}
+  .big-glyph.cyan{color:rgba(143,208,216,.08);text-shadow:0 0 80px rgba(143,208,216,.28)}
+  .badge-bar{position:absolute;left:50%;top:47%;width:min(300px,60vw);height:46px;transform:translateX(-50%);
+    background:linear-gradient(90deg,transparent,rgba(143,208,216,.16),transparent);
+    border-top:1px solid rgba(143,208,216,.3);border-bottom:1px solid rgba(143,208,216,.3);
+    box-shadow:0 0 40px rgba(143,208,216,.12)}
+
+  .sil{position:absolute;filter:drop-shadow(0 0 14px rgba(0,0,0,.6))}
+  .sil svg{width:100%;height:100%;overflow:visible}
+  @keyframes silIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes ringPulse{0%,100%{opacity:.5}50%{opacity:1}}
+  @keyframes haloPulse{0%,100%{opacity:.7}50%{opacity:1}}
+
+  /* —— 死亡结局专属场景 —— */
+  .big-glyph.danger{color:rgba(255,90,80,.1);text-shadow:0 0 80px rgba(255,90,80,.35);animation:glyphBreath 4s ease-in-out infinite}
+  .shatter{position:absolute;left:50%;top:34%;width:120px;height:120px;transform:translate(-50%,-50%);
+    border:2px solid rgba(255,90,80,.4);border-radius:50%;animation:shatterExpand 1.6s ease-out infinite}
+  .shatter.s2{width:200px;height:200px;animation-delay:.3s}
+  .shatter.s3{width:280px;height:280px;animation-delay:.6s}
+  @keyframes shatterExpand{0%{transform:translate(-50%,-50%) scale(.6);opacity:.8}100%{transform:translate(-50%,-50%) scale(1.4);opacity:0}}
+  .tv.broken{border-color:#3a0a0a;box-shadow:0 26px 70px rgba(0,0,0,.7),0 0 90px rgba(255,60,50,.15)}
+  .tv.broken .tv-screen{background:radial-gradient(ellipse at 50% 42%,rgba(200,60,50,.2),rgba(120,20,15,.15) 55%,rgba(20,5,5,.92))}
+  .tv-static.fast{animation:staticShift .1s steps(2) infinite;opacity:.25}
+  .tv-crack{position:absolute;inset:0;pointer-events:none}
+  .tv-crack::before,.tv-crack::after{content:'';position:absolute;background:linear-gradient(45deg,transparent 48%,rgba(255,255,255,.6) 50%,transparent 52%)}
+  .tv-crack::before{left:20%;top:30%;width:60%;height:2px;transform:rotate(25deg)}
+  .tv-crack::after{left:45%;top:10%;width:2px;height:80%;transform:rotate(-15deg)}
+  .sil.ghost.red{color:#ff6a5a;filter:drop-shadow(0 0 22px rgba(255,80,60,.5))}
+  .wall-grid{position:absolute;inset:0;background-image:
+    linear-gradient(rgba(255,90,80,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,90,80,.06) 1px,transparent 1px);
+    background-size:60px 60px;animation:gridPulse 3s ease-in-out infinite}
+  @keyframes gridPulse{0%,100%{opacity:.4}50%{opacity:.8}}
+  .pay-grid{position:absolute;inset:0;background-image:radial-gradient(rgba(255,90,80,.15) 1px,transparent 1px);
+    background-size:40px 40px;animation:gridPulse 2s ease-in-out infinite}
+  .sil.nurse.red{color:#ff6a5a;filter:drop-shadow(0 0 22px rgba(255,80,60,.5))}
+  .iron-door{position:absolute;left:50%;top:34%;width:min(400px,70vw);height:min(260px,40vh);transform:translate(-50%,-50%);
+    background:linear-gradient(180deg,#1a1a2e,#0a0a14);border:4px solid #2a2a3e;border-radius:8px;
+    box-shadow:0 20px 60px rgba(0,0,0,.6),inset 0 0 40px rgba(0,0,0,.4)}
+  .iron-door::before{content:'';position:absolute;inset:20px;border:2px solid rgba(255,90,80,.3);border-radius:4px}
+  .iron-door::after{content:'已 锁 定';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    color:var(--red);font-size:18px;letter-spacing:.4em;text-shadow:0 0 20px rgba(255,90,80,.5)}
+  .gas-cloud{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(120,220,180,.25),rgba(60,160,120,.1) 50%,transparent 70%);
+    filter:blur(8px);animation:gasDrift 8s ease-in-out infinite}
+  .gas-cloud.c1{width:300px;height:180px;left:10%;top:30%}
+  .gas-cloud.c2{width:260px;height:160px;right:10%;top:40%;animation-delay:2s}
+  @keyframes gasDrift{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,-20px)}}
+  .paper-shred{position:absolute;left:50%;top:34%;width:8px;height:120px;transform:translate(-50%,-50%);
+    background:linear-gradient(180deg,rgba(216,196,135,.6),transparent);animation:shredFall 1.2s ease-out forwards}
+  .paper-shred.s2{left:52%;top:36%;animation-delay:.2s;transform:translate(-50%,-50%) rotate(15deg)}
+  @keyframes shredFall{to{opacity:0;transform:translate(-50%,-20%) rotate(45deg)}}
+  .desk-empty{position:absolute;left:50%;top:34%;width:min(300px,50vw);height:min(180px,30vh);transform:translate(-50%,-50%);
+    background:linear-gradient(180deg,#1a1a2e,#0a0a14);border:2px solid #2a2a3e;border-radius:6px;
+    box-shadow:0 16px 50px rgba(0,0,0,.5)}
+  .desk-empty::before{content:'';position:absolute;left:50%;top:50%;width:60%;height:60%;transform:translate(-50%,-50%);
+    border:1px dashed rgba(255,90,80,.4);border-radius:4px}
+  .finger-point{position:absolute;left:50%;top:34%;width:4px;height:min(200px,35vh);transform:translate(-50%,-50%);
+    background:linear-gradient(180deg,rgba(255,90,80,.6),transparent);border-radius:2px;
+    box-shadow:0 0 30px rgba(255,90,80,.4);animation:fingerTremble 1.2s ease-in-out infinite}
+  @keyframes fingerTremble{0%,100%{transform:translate(-50%,-50%) rotate(0)}50%{transform:translate(-50%,-50%) rotate(2deg)}}
+  .speech-bubble{position:absolute;padding:10px 18px;border:2px solid rgba(255,90,80,.5);border-radius:20px;
+    color:var(--red);font-size:14px;letter-spacing:.2em;background:rgba(20,10,10,.8);
+    animation:bubblePop 2s ease-in-out infinite}
+  .speech-bubble.b1{left:20%;top:25%;animation-delay:.2s}
+  .speech-bubble.b2{right:20%;top:45%;animation-delay:.8s}
+  @keyframes bubblePop{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.08);opacity:1}}
+  .wire-spark{position:absolute;width:4px;height:4px;border-radius:50%;background:#fff;
+    box-shadow:0 0 20px #fff,0 0 40px rgba(255,220,100,.8);animation:sparkFlash .4s ease-out infinite}
+  .wire-spark.s1{left:35%;top:40%}
+  .wire-spark.s2{left:60%;top:55%;animation-delay:.2s}
+  @keyframes sparkFlash{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(2.5)}}
+
+  /* —— 章节过场 —— */
+  #chapter-veil{
+    position:fixed;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;
+    background:rgba(3,5,12,.62);backdrop-filter:blur(4px);
+    opacity:0;pointer-events:none;transition:opacity .7s ease;
+  }
+  #chapter-veil.show{opacity:1}
+  .veil-inner{text-align:center;transform:translateY(12px);transition:transform .7s ease}
+  #chapter-veil.show .veil-inner{transform:none}
+  .veil-c{font-size:44px;letter-spacing:.5em;text-indent:.5em;color:var(--gold);
+    text-shadow:0 0 30px rgba(216,196,135,.5);font-weight:600}
+  .veil-line{width:120px;height:1px;margin:22px auto;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+  .veil-s{font-size:17px;letter-spacing:.6em;text-indent:.6em;color:var(--cyan)}
+
+  /* —— 面板 / 标题入场 —— */
+  .paper.enter{animation:paperIn 1s .15s ease both}
+  @keyframes paperIn{from{opacity:0;transform:translateY(26px) scale(.985)}to{opacity:1;transform:none}}
+  .title-main{animation:dropIn 1.5s ease both,titleGlow 5s 1.5s ease-in-out infinite}
+  .title-sub{animation:fadeUp 1.3s .45s ease both}
+  .title-rule{animation:ruleGrow 1.4s .7s ease both}
+  .title-desc{animation:fadeUp 1.2s .85s ease both}
+  .menu{animation:fadeUp 1.2s 1.05s ease both}
+  @keyframes dropIn{from{opacity:0;transform:translateY(-22px)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}}
+  @keyframes ruleGrow{from{opacity:0;width:0}}
+  @keyframes titleGlow{0%,100%{text-shadow:0 0 40px rgba(216,196,135,.35),0 0 4px rgba(255,240,200,.5)}
+    50%{text-shadow:0 0 64px rgba(216,196,135,.6),0 0 10px rgba(255,240,200,.8)}}
+
+  @media (max-width:600px){
+    .paper{padding:20px 20px 16px;max-height:54vh}
+    .hud{padding:12px 16px;flex-wrap:wrap;gap:8px}
+    .hud-left{gap:8px}
+    .scene-chip{font-size:10.5px;padding:3px 10px;letter-spacing:.2em}
+    .hud .chapter{letter-spacing:.2em}
+    .stats{gap:12px;order:3;width:100%;justify-content:center}
+    .node-title{font-size:20px}
+    .node-text{font-size:15.5px;line-height:1.95}
+    .choice{padding:12px 16px;font-size:14.5px}
+    .tv{top:40%;width:86vw}
+    .sil.ghost{width:84px;left:calc(50% - 42px);bottom:42vh}
+    .sil.nurse{width:76px;right:5%}
+    .sil.boss{width:100px;right:4%}
+    .core{width:150px;height:150px}
+    .punch{left:4%;width:120px;height:70px;bottom:48vh}
+    .punch-time{font-size:13.5px;letter-spacing:.12em}
+    .tag{font-size:12px;padding:5px 8px}
+    .tag.t3{display:none}
+    .bed-sign{font-size:11px;padding:6px 10px;left:4%}
+    .ppt{width:84vw}
+    .ppt-title{font-size:15px}
+    .seal{width:150px}
+    .loop-a,.loop-b,.loop-wrap{width:160px;height:80px;border-radius:160px/40px}
+    .veil-c{font-size:30px}
+    .title-foot{display:none}
+    .vignette::after{height:28px}
+    .gallery-box{padding:24px 20px}
+    .menu button{width:200px}
+    .achv-prog{top:auto;bottom:14px;right:12px;font-size:10.5px;padding:5px 10px}
+    #achv-toast{white-space:normal;max-width:88vw;padding:10px 18px;font-size:12.5px}
+  }
+  @media (pointer:coarse){
+    .choice{min-height:50px;display:flex;align-items:center}
+    button{touch-action:manipulation}
+  }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="nebula"></div>
+<div class="vignette"></div>
+<canvas id="fx-canvas"></canvas>
+<div id="scene-set" aria-hidden="true"></div>
+<div id="chapter-veil"><div class="veil-inner"></div></div>
+
+<!-- 标题屏 -->
+<section id="title-screen" class="screen active">
+  <div class="title-main">主神也加班</div>
+  <div class="title-sub">一 场 关 于 KPI 与 厉 鬼 的 无 限 流</div>
+  <div class="title-rule"></div>
+  <p class="title-desc">
+    深夜，你第无数次在工位前睡着。<br>
+    醒来时，眼前是一片蓝屏——欢迎进入"无限流"。<br>
+    这里的贞子爬出电视，不为杀人，只为求你帮她改简历；<br>
+    厉鬼的必杀技，是一场绩效考核；新手 SSR 技能，是一张满减券。<br>
+    活下去，然后查清这一切背后的真相。
+  </p>
+  <div class="menu">
+    <button id="btn-start">开始上班</button>
+    <button id="btn-continue" disabled>继续搬砖</button>
+    <button id="btn-respawn" disabled style="display:none">从存档点复活</button>
+    <button id="btn-gallery">结局回廊</button>
+    <button id="btn-achv">成就殿堂</button>
+  </div>
+  <div class="title-foot">原创无限流剧本 · 单文件文字游戏 · 无外部资源</div>
+  <div class="achv-prog">绩效 <b id="achv-count">0/0</b></div>
+</section>
+
+<!-- 游戏屏 -->
+<section id="game-screen" class="screen">
+  <div class="hud">
+    <div class="hud-left">
+      <div class="chapter" id="hud-chapter">序章</div>
+      <div class="scene-chip" id="hud-scene">主神空间</div>
+    </div>
+    <div class="stats">
+      <div class="stat calm"><span>冷静</span><div class="dots" id="dots-calm"></div></div>
+      <div class="stat talk"><span>嘴炮</span><div class="dots" id="dots-talk"></div></div>
+      <div class="stat slacker"><span>摸鱼</span><div class="dots" id="dots-slacker"></div></div>
+    </div>
+    <div class="hud-btns">
+      <button id="btn-title">返回标题</button>
+    </div>
+  </div>
+  <div class="stage">
+    <article class="paper">
+      <div class="node-chapter" id="node-chapter"></div>
+      <h1 class="node-title" id="node-title"></h1>
+      <div class="node-text" id="node-text"></div>
+      <div class="continue-hint" id="continue-hint"></div>
+      <div class="choices" id="choices"></div>
+    </article>
+  </div>
+</section>
+
+<!-- 结局回廊 -->
+<div id="gallery">
+  <div class="gallery-box">
+    <h2>结 局 回 廊</h2>
+    <div class="tip">这里收录你在无限流世界里走过的结局</div>
+    <div id="gallery-list"></div>
+    <button class="gallery-close" id="gallery-close">合 卷</button>
+  </div>
+</div>
+
+<!-- 成就殿堂 -->
+<div id="achv">
+  <div class="gallery-box">
+    <h2>成 就 殿 堂</h2>
+    <div class="tip">主神空间绩效考核记录 · 解锁全部成就可兑换「精神离职证明」一张</div>
+    <div id="achv-list"></div>
+    <button class="gallery-close" id="achv-close">盖 章</button>
+  </div>
+</div>
+
+<!-- 成就解锁提示 -->
+<div id="achv-toast">
+  <span class="medal">◆</span>
+  <span><span class="t-sub">成 就 解 锁</span><span class="t-name" id="toast-name"></span></span>
+</div>
+
+<!-- 音频控制 -->
+<div class="audio-ctl">
+  <button id="btn-bgm" title="背景音乐开关">乐 · 开</button>
+  <button id="btn-sfx" title="音效开关">音 · 开</button>
+  <button id="btn-voice" title="人物对话语音开关">声 · 开</button>
+</div>
+
+<script>
+/* ================= 星空背景 ================= */
+(function(){
+  const cv = document.getElementById('stars'), ctx = cv.getContext('2d');
+  let stars = [];
+  function resize(){
+    cv.width = innerWidth; cv.height = innerHeight;
+    const n = Math.min(260, Math.floor(innerWidth*innerHeight/7000));
+    stars = Array.from({length:n},()=>({
+      x:Math.random()*cv.width, y:Math.random()*cv.height,
+      r:Math.random()*1.3+.2, a:Math.random()*.7+.15,
+      s:Math.random()*.012+.003, p:Math.random()*Math.PI*2
+    }));
+  }
+  function draw(t){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for(const st of stars){
+      const tw = st.a + Math.sin(t*st.s + st.p)*.25;
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(220,228,255,'+Math.max(0,tw)+')';
+      ctx.arc(st.x,st.y,st.r,0,7);
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  addEventListener('resize',resize); resize(); requestAnimationFrame(draw);
+})();
+
+/* ================= 音频引擎（Web Audio 程序化合成，无需外部文件） ================= */
+const Sound=(function(){
+  let ctx=null, bgmBus=null, sfxBus=null;
+  let bgmOn=true, sfxOn=true, wantTrack=null, session=null, unlocked=false;
+  try{
+    const p=JSON.parse(localStorage.getItem('wuxian_audio_v1')||'{}');
+    if(p.bgm===false) bgmOn=false;
+    if(p.sfx===false) sfxOn=false;
+  }catch(e){}
+
+  const n2f = semi => 261.63*Math.pow(2,semi/12); // C4 起，半音偏移 → 频率
+  let oscCount=0;
+  function osc(){ oscCount++; return ctx.createOscillator(); }
+  function dbg(){
+    document.documentElement.dataset.audio=JSON.stringify({
+      osc:oscCount, state:ctx?ctx.state:'none', track:wantTrack||null
+    });
+  }
+  setInterval(dbg,800);
+
+  function ensureCtx(){
+    if(ctx) return;
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC) return;
+    ctx=new AC();
+    const master=ctx.createGain(); master.gain.value=1; master.connect(ctx.destination);
+    bgmBus=ctx.createGain(); bgmBus.gain.value=bgmOn?0.85:0; bgmBus.connect(master);
+    sfxBus=ctx.createGain(); sfxBus.gain.value=sfxOn?0.9:0; sfxBus.connect(master);
+  }
+  function unlock(){
+    ensureCtx();
+    if(!ctx) return;
+    if(ctx.state==='suspended') ctx.resume();
+    if(!unlocked){ unlocked=true; if(wantTrack) playBgm(wantTrack); }
+  }
+  function persist(){
+    let p={};
+    try{ p=JSON.parse(localStorage.getItem('wuxian_audio_v1')||'{}')||{}; }catch(e){}
+    p.bgm=bgmOn; p.sfx=sfxOn;
+    localStorage.setItem('wuxian_audio_v1',JSON.stringify(p));
+  }
+  function ramp(p,v){ p.cancelScheduledValues(ctx.currentTime); p.setValueAtTime(p.value,ctx.currentTime); p.linearRampToValueAtTime(v,ctx.currentTime+.25); }
+
+  /* ---- 合成元件：电子拨弦（方波+泛音） / 系统提示钟 / 打字敲击 ---- */
+  function pluck(freq,t,peak,dur,dest){
+    dest=dest||sfxBus;
+    const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=Math.min(5200,freq*7);
+    const g=ctx.createGain();
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(peak,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    const o1=osc(); o1.type='square'; o1.frequency.value=freq;
+    const o2=osc(); o2.type='sine'; o2.frequency.value=freq*2;
+    const g2=ctx.createGain(); g2.gain.value=.3;
+    o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp); lp.connect(dest);
+    o1.start(t);o2.start(t);o1.stop(t+dur+.06);o2.stop(t+dur+.06);
+  }
+  function bell(freq,t,peak,dur,dest){
+    dest=dest||sfxBus;
+    const g=ctx.createGain();
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(peak,t+0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    g.connect(dest);
+    [[1,1],[2.01,.5],[2.99,.26],[4.18,.13]].forEach(([m,a])=>{
+      const o=osc(); o.type='sine'; o.frequency.value=freq*m;
+      const og=ctx.createGain(); og.gain.value=a;
+      o.connect(og);og.connect(g);o.start(t);o.stop(t+dur+.06);
+    });
+  }
+  function knock(){
+    const t=ctx.currentTime;
+    const o=osc(), g=ctx.createGain(), bp=ctx.createBiquadFilter();
+    o.type='square';
+    o.frequency.setValueAtTime(1100,t);
+    o.frequency.exponentialRampToValueAtTime(660,t+0.03);
+    bp.type='bandpass';bp.frequency.value=1500;bp.Q.value=3.5;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.05,t+0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.05);
+    o.connect(bp);bp.connect(g);g.connect(sfxBus);
+    o.start(t);o.stop(t+.07);
+  }
+
+  /* ---- 音效 ---- */
+  const sfxReady=()=>ctx && sfxOn;
+  const sfx={
+    type(){ if(sfxReady()) knock(); },
+    hover(){ if(sfxReady()) pluck(n2f(16),ctx.currentTime,0.045,0.32); },
+    click(){ if(sfxReady()) pluck(n2f(4),ctx.currentTime,0.07,0.28); },
+    select(){
+      if(!sfxReady()) return;
+      pluck(n2f(7),ctx.currentTime,0.14,0.85);
+      setTimeout(()=>{ if(sfxReady()) pluck(n2f(12),ctx.currentTime,0.1,0.85); },95);
+    },
+    turn(){ if(sfxReady()) bell(n2f(12),ctx.currentTime,0.055,1.9); },
+    ending(){
+      if(!sfxReady()) return;
+      [12,16,19,24].forEach((s,i)=>setTimeout(()=>{ if(sfxReady()) pluck(n2f(s),ctx.currentTime,0.12,2.2); },i*330));
+    },
+    secret(){
+      if(!sfxReady()) return;
+      [7,12,16,19,24,28].forEach((s,i)=>setTimeout(()=>{ if(sfxReady()) bell(n2f(s),ctx.currentTime,0.085,2.6); },i*160));
+    }
+  };
+
+  /* ---- 生成式 BGM：悬疑不协和音程 + 持续低音（社畜恐怖风） ---- */
+  const TRACKS={
+    title :{step:0.85,notes:[-4,0,1,5,6,12],every:4,prob:.4,dur:2.8,drone:[-12,-6],swell:28,bell:false},
+    game  :{step:0.42,notes:[0,1,3,6,7,8,13],every:2,prob:.5,dur:1.2,drone:[-17,-12],swell:24,bell:false},
+    ending:{step:0.7,notes:[0,4,7,12,16,19],every:3,prob:.55,dur:3.2,drone:[-12,-5],swell:24,bell:true}
+  };
+
+  function playBgm(name){
+    wantTrack=name;
+    if(!ctx) return;
+    stopBgm();
+    const cfg=TRACKS[name]||TRACKS.title, t0=ctx.currentTime+0.1;
+    const trackGain=ctx.createGain();
+    trackGain.gain.setValueAtTime(0.0001,ctx.currentTime);
+    trackGain.gain.exponentialRampToValueAtTime(1,ctx.currentTime+2.4);
+    trackGain.connect(bgmBus);
+
+    const drones=cfg.drone.map(semi=>{
+      const o=osc(),g=ctx.createGain(),lp=ctx.createBiquadFilter();
+      o.type='sine';o.frequency.value=n2f(semi);
+      lp.type='lowpass';lp.frequency.value=650;
+      g.gain.value=0.0001;
+      o.connect(lp);lp.connect(g);g.connect(trackGain);o.start();
+      return {o,g};
+    });
+    function swell(t){
+      drones.forEach(d=>{
+        d.g.gain.cancelScheduledValues(t);
+        d.g.gain.setValueAtTime(Math.max(0.0001,d.g.gain.value),t);
+        d.g.gain.exponentialRampToValueAtTime(0.05,t+cfg.step*4);
+        d.g.gain.exponentialRampToValueAtTime(0.012,t+cfg.step*cfg.swell);
+      });
+    }
+    swell(t0);
+    let step=0,next=t0;
+    const id=setInterval(()=>{
+      if(ctx.state!=='running'){ next=ctx.currentTime+0.2; return; }
+      while(next<ctx.currentTime+0.4){
+        const t=next;
+        if(step%cfg.every===0 && Math.random()<cfg.prob){
+          const semi=cfg.notes[Math.floor(Math.random()*cfg.notes.length)];
+          if(cfg.bell) bell(n2f(semi),t,0.05,cfg.dur,trackGain);
+          else pluck(n2f(semi),t,0.065,cfg.dur,trackGain);
+        }
+        if(step%2===0 && Math.random()<0.16)
+          pluck(n2f(cfg.drone[1]+(Math.random()<.5?0:2)),t,0.045,2.4,trackGain);
+        if(step%cfg.swell===0) swell(t);
+        next+=cfg.step;step++;
+      }
+    },150);
+    session={id,trackGain,drones};
+  }
+  function stopBgm(){
+    if(!session||!ctx) return;
+    clearInterval(session.id);
+    const s=session,t=ctx.currentTime,node=s.trackGain;
+    s.drones.forEach(d=>{
+      d.g.gain.cancelScheduledValues(t);
+      d.g.gain.setValueAtTime(Math.max(0.0001,d.g.gain.value),t);
+      d.g.gain.exponentialRampToValueAtTime(0.0001,t+1.6);
+      d.o.stop(t+1.8);
+    });
+    s.trackGain.gain.cancelScheduledValues(t);
+    s.trackGain.gain.setValueAtTime(Math.max(0.0001,s.trackGain.gain.value),t);
+    s.trackGain.gain.exponentialRampToValueAtTime(0.0001,t+1.6);
+    setTimeout(()=>{ try{node.disconnect();}catch(e){} },2000);
+    session=null;
+  }
+
+  function duck(go){
+    if(!bgmBus||!ctx) return;
+    ramp(bgmBus.gain, go&&bgmOn ? 0.3 : (bgmOn?0.85:0));
+  }
+
+  return {
+    unlock, sfx, duck,
+    bgm:playBgm,
+    get bgmOn(){return bgmOn}, get sfxOn(){return sfxOn}, get unlocked(){return unlocked},
+    toggleBgm(){ bgmOn=!bgmOn; persist(); if(bgmBus&&ctx) ramp(bgmBus.gain,bgmOn?0.85:0); return bgmOn; },
+    toggleSfx(){ sfxOn=!sfxOn; persist(); if(sfxBus&&ctx) ramp(sfxBus.gain,sfxOn?0.9:0); return sfxOn; }
+  };
+})();
+
+/* ================= 人物对话语音（Web Speech 合成，无外部资源） ================= */
+const Voice=(function(){
+  const synth=window.speechSynthesis||null;
+  let on=true;
+  try{
+    const p=JSON.parse(localStorage.getItem('wuxian_audio_v1')||'{}');
+    if(p.voice===false) on=false;
+  }catch(e){}
+
+  /* 角色音色：主神（客服甜音）/ 贞子（低沉）/ 王总（大叔）/ HR（冷厉）/ 玩家 / 旁白 */
+  const PROFILES={
+    narrator:{rate:.98,pitch:1.0, v:null},
+    ai:      {rate:1.12,pitch:1.48,v:'f'},
+    zhenzi:  {rate:.94, pitch:.62, v:'f'},
+    boss:    {rate:1.05,pitch:.55, v:'m'},
+    hr:      {rate:.96, pitch:.5,  v:'f'},
+    player:  {rate:1.0, pitch:1.12,v:'f'}
+  };
+  let zh=[],vMale=null,vFemale=null;
+  function pickVoices(){
+    if(!synth) return;
+    const all=synth.getVoices()||[];
+    zh=all.filter(v=>/zh|cmn|Chinese/i.test(v.lang)||/Xiaoxiao|Yunjian|Huihui|Kangkang|Yaoyao/i.test(v.name));
+    const find=re=>zh.find(v=>re.test(v.name))||all.find(v=>/zh/i.test(v.lang)&&re.test(v.name));
+    vMale  =find(/Yunjian|Yunxi|Yunyang|Kangkang|Male|男/i);
+    vFemale=find(/Xiaoxiao|Xiaoyi|Xiaomo|Xiaohan|Yaoyao|Huihui|Tingting|Female|女/i);
+  }
+  if(synth){ pickVoices(); synth.addEventListener&&synth.addEventListener('voiceschanged',pickVoices); }
+
+  function persist(){
+    let p={};
+    try{ p=JSON.parse(localStorage.getItem('wuxian_audio_v1')||'{}')||{}; }catch(e){}
+    p.voice=on;
+    localStorage.setItem('wuxian_audio_v1',JSON.stringify(p));
+  }
+
+  function whoOf(w){
+    if(/^(主神|小宇宙|系统|客服)$/.test(w)) return 'ai';
+    if(/^(王总|王守一|老板)$/.test(w)) return 'boss';
+    if(/^(贞子|周小唯|小周)$/.test(w)) return 'zhenzi';
+    if(/^(护士|小张|甄主任|HR)$/.test(w)) return 'hr';
+    return 'player';
+  }
+  function nearestKw(s){
+    if(!s) return null;
+    const verbs='说|问|道|吼|喊|笑|答|补充|喃喃|低声|重复|开口|吩咐|凑近|咳嗽|宣布|惊叫';
+    const reV=new RegExp('(主神|小宇宙|系统|客服|王总|王守一|老板|贞子|周小唯|小周|护士|小张|甄主任|HR|你)[^，。；！？\\n”’]{0,10}?('+verbs+')','g');
+    let m,last=null;
+    while((m=reV.exec(s))) last=m[1];
+    if(last) return whoOf(last);
+    const kws=[
+      [/主神|小宇宙|系统|客服/g,'ai'],
+      [/王总|王守一|老板/g,'boss'],
+      [/贞子|周小唯|小周/g,'zhenzi'],
+      [/护士|小张|甄主任|HR/g,'hr'],
+      [/你(?:喃喃|说|问|答|道|指)/g,'player']
+    ];
+    let best=null,bi=-1;
+    for(const [r,w] of kws){
+      r.lastIndex=0; let mm;
+      while((mm=r.exec(s))){ if(mm.index>bi){ bi=mm.index; best=w; } }
+    }
+    return best;
+  }
+  function parse(text){
+    const out=[];
+    const re=/“([^”]*)”/g;
+    let last=0,m,inherit='narrator';
+    const push=(who,t)=>{ t=t.replace(/\s+/g,'').trim(); if(t) out.push({who,t}); };
+    while((m=re.exec(text))){
+      const pre=text.slice(last,m.index);
+      if(pre) push('narrator',pre);
+      const post=text.slice(re.lastIndex,re.lastIndex+14);
+      const who=nearestKw(pre)||nearestKw(post)||inherit;
+      inherit=who;
+      push(who,m[1]);
+      last=re.lastIndex;
+    }
+    if(last<text.length) push('narrator',text.slice(last));
+    return out;
+  }
+
+  let token=0;
+  function sayText(text){
+    if(!synth) return;
+    const my=++token;
+    synth.cancel();
+    if(!on) return;
+    const segs=parse(text);
+    let queued=0;
+    segs.forEach((seg,i)=>{
+      const u=new SpeechSynthesisUtterance(seg.t);
+      const p=PROFILES[seg.who]||PROFILES.narrator;
+      u.lang='zh-CN'; u.rate=p.rate; u.pitch=p.pitch;
+      const v=p.v==='m'?vMale:p.v==='f'?vFemale:null;
+      if(v) u.voice=v;
+      const finish=()=>{ if(my===token && i===segs.length-1) Sound.duck(false); };
+      u.onend=finish; u.onerror=finish;
+      synth.speak(u); queued++;
+    });
+    if(queued){ try{synth.resume();}catch(e){} Sound.duck(true); }
+  }
+  function stop(){
+    token++;
+    if(synth) synth.cancel();
+    Sound.duck(false);
+  }
+  function toggle(){
+    on=!on; persist();
+    if(!on){ stop(); }
+    return on;
+  }
+  return {sayText,stop,toggle,get on(){return on},get supported(){return !!synth}};
+})();
+
+/* ================= 演出导演：场景模板 + 粒子层 ================= */
+const Stage=(function(){
+  /* —— SVG 剪影立绘 —— */
+  const GHOST='<svg viewBox="0 0 120 200" fill="currentColor"><path d="M26 8 Q60 -8 94 8 L98 190 Q60 202 22 190 Z" opacity=".5"/><ellipse cx="60" cy="34" rx="15" ry="18" opacity=".96"/><path d="M44 30 Q60 38 76 30 L80 152 Q60 164 40 152 Z" opacity=".9"/><path d="M46 34 Q60 46 74 34" stroke="currentColor" stroke-width="3" fill="none" opacity=".92"/></svg>';
+  const NURSE='<svg viewBox="0 0 120 200" fill="currentColor"><path d="M36 32 L60 16 L84 32 L84 42 L36 42 Z"/><path d="M56 16 h8 v8 h8 v8 h-8 v8 h-8 v-8 h-8 v-8 h8 Z"/><path d="M40 42 Q60 50 80 42 L86 162 Q60 174 34 162 Z"/><path d="M30 52 Q46 60 52 58 L52 150 Q46 152 40 150 Z" opacity=".55"/><path d="M90 52 Q74 60 68 58 L68 150 Q74 152 80 150 Z" opacity=".55"/></svg>';
+  const BOSS='<svg viewBox="0 0 160 220" fill="currentColor"><circle cx="80" cy="46" r="30"/><ellipse cx="86" cy="66" rx="22" ry="12"/><path d="M44 86 Q80 78 116 86 L124 182 Q80 194 36 182 Z"/><path d="M80 90 l-8 18 h16 Z"/><path d="M44 98 Q28 108 24 130 Q54 116 58 104 Z"/><path d="M116 98 Q132 108 136 130 Q106 116 102 104 Z"/></svg>';
+  const AI='<svg viewBox="0 0 120 120" fill="currentColor"><path d="M60 24 V6" stroke="currentColor" stroke-width="4" opacity=".8"/><path d="M48 14 h24" stroke="currentColor" stroke-width="4" opacity=".8"/><circle cx="60" cy="64" r="36" opacity=".85"/><circle cx="60" cy="64" r="24" opacity=".35"/></svg>';
+
+  const SCENES={
+    void:`<div class="core"></div><div class="core-dot"></div><div class="punch"><span class="punch-time">00:00:01</span></div>`,
+    tv:`<div class="tv"><div class="tv-screen"><div class="tv-static"></div><div class="tv-scan"></div><div class="tv-well"></div></div></div><div class="sil ghost">${GHOST}</div>`,
+    hospital:`<div class="hall-glow"></div><div class="hall"></div><div class="alert"></div><div class="bed-sign">3 号 床 · 欠 费 250</div><div class="sil nurse">${NURSE}</div>`,
+    mall:`<div class="sale-beam"></div><div class="tag t1">惊爆价 9.9</div><div class="tag t2">满30减5</div><div class="tag t3">假一赔十（命）</div><div class="sil ai">${AI}</div>`,
+    meeting:`<div class="ppt"><div class="ppt-title">无限宇宙 Q4 复盘会</div><div class="ppt-bar"></div><div class="ppt-sub">—— 让每一次加班，都成为一场冒险</div></div><div class="podium"></div><div class="sil boss">${BOSS}</div>`,
+    end_zhongcai:`<div class="seal"><div class="seal-star">★</div><div>劳 · 动</div><div>仲 · 裁</div></div>`,
+    end_moyu:`<div class="big-glyph">鱼</div><div class="cloud-puff p1"></div><div class="cloud-puff p2"></div>`,
+    end_loop:`<div class="loop-wrap"><div class="loop-a"></div><div class="loop-b"></div></div>`,
+    end_bianzhi:`<div class="big-glyph cyan">监</div><div class="badge-bar"></div>`,
+    die_punch:`<div class="big-glyph danger">封</div><div class="shatter s1"></div><div class="shatter s2"></div><div class="shatter s3"></div>`,
+    die_tv:`<div class="tv broken"><div class="tv-screen"><div class="tv-static fast"></div><div class="tv-crack"></div></div></div><div class="sil ghost red">${GHOST}</div>`,
+    die_walkout:`<div class="big-glyph danger">墙</div><div class="wall-grid"></div>`,
+    die_hospital_death:`<div class="big-glyph danger">欠</div><div class="tag t1">账单 · 250</div><div class="tag t2">已用遗体抵扣</div>`,
+    die_hospital_charge:`<div class="big-glyph danger">缴</div><div class="pay-grid"></div><div class="sil nurse red">${NURSE}</div>`,
+    die_hospital_ram:`<div class="big-glyph danger">门</div><div class="iron-door"></div>`,
+    die_hospital_gas:`<div class="big-glyph danger">毒</div><div class="gas-cloud c1"></div><div class="gas-cloud c2"></div>`,
+    die_mall_rob:`<div class="big-glyph danger">劫</div><div class="tag t1">9.9 包邮</div><div class="tag t2">仅供娱乐</div><div class="sil ai red">${AI}</div>`,
+    die_mall_tear:`<div class="big-glyph danger">约</div><div class="paper-shred"></div><div class="paper-shred s2"></div>`,
+    die_final_quit:`<div class="big-glyph danger">销</div><div class="desk-empty"></div>`,
+    die_final_zhongcai_fail:`<div class="big-glyph danger">噤</div><div class="finger-point"></div>`,
+    die_hr_outtalk:`<div class="big-glyph danger">怼</div><div class="speech-bubble b1">逻辑闭环</div><div class="speech-bubble b2">你已被说服</div>`,
+    die_wire:`<div class="big-glyph danger">电</div><div class="wire-spark s1"></div><div class="wire-spark s2"></div><div class="tv broken"><div class="tv-screen"><div class="tv-static fast"></div></div></div>`,
+    die_afk:`<div class="big-glyph danger">挂</div><div class="tag t1">离线挂机</div><div class="tag t2">禁赛 12 小时</div>`,
+    die_evidence:`<div class="big-glyph danger">证</div><div class="paper-shred"></div><div class="paper-shred s2"></div><div class="paper-shred s3"></div>`
+  };
+
+  /* —— 粒子层 —— */
+  const cv=document.getElementById('fx-canvas'), ctx=cv.getContext('2d');
+  const GLYPHS='班KPI方案加班打卡卷薪报摸鱼排期需求评审上线周报绩效';
+  let W=0,H=0,parts=[],streaks=[],mode='title';
+  const pick=s=>s[Math.floor(Math.random()*s.length)];
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const FONT='"Noto Serif SC","Songti SC","STSong",serif';
+
+  function resize(){
+    const d=Math.min(devicePixelRatio||1,1.5);
+    W=innerWidth;H=innerHeight;
+    cv.width=W*d;cv.height=H*d;
+    ctx.setTransform(d,0,0,d,0,0);
+  }
+  addEventListener('resize',resize); resize();
+
+  function dust(color,n,vyRange,sizeRange,alpha){
+    const a=[];
+    for(let i=0;i<n;i++)a.push({x:Math.random()*W,y:Math.random()*H,
+      vx:rand(-.08,.08),vy:rand(vyRange[0],vyRange[1]),s:rand(sizeRange[0],sizeRange[1]),
+      a:rand(alpha[0],alpha[1]),ph:Math.random()*6.28,color,glyph:false});
+    return a;
+  }
+  function glyphs(n,sizeR,alphaR,ch){
+    const a=[];
+    for(let i=0;i<n;i++)a.push({x:Math.random()*W,y:Math.random()*H,
+      vx:rand(-.08,.06),vy:rand(-.3,-.08),s:rand(sizeR[0],sizeR[1]),a:rand(alphaR[0],alphaR[1]),
+      ph:Math.random()*6.28,color:'216,196,135',glyph:true,ch:ch||pick(GLYPHS)});
+    return a;
+  }
+
+  function setMode(m){
+    mode=m;parts=[];streaks=[];
+    switch(m){
+      case 'title': parts=glyphs(22,[12,22],[.06,.2]); parts.forEach(p=>p.color='180,200,235'); break;
+      case 'void': parts=dust('150,185,230',30,[-.18,-.04],[1,2.2],[.08,.3]); break;
+      case 'tv': parts=dust('210,222,246',64,[.18,.55],[.6,1.4],[.06,.22]); break;
+      case 'hospital': parts=dust('255,90,80',28,[-.3,-.08],[1,2.4],[.1,.4]); break;
+      case 'mall': parts=dust('245,214,130',46,[-.5,-.16],[1.2,2.8],[.16,.55]); break;
+      case 'meeting':
+        parts=dust('200,210,225',24,[-.1,-.02],[1,1.8],[.08,.3]);
+        parts.push(...glyphs(9,[16,26],[.12,.3],'饼'));
+        break;
+      case 'end_zhongcai':
+        parts=dust('245,214,130',36,[-.4,-.12],[1.2,3],[.15,.5]);
+        parts.push(...glyphs(10,[14,22],[.14,.36],'法'));
+        break;
+      case 'end_moyu':
+        parts=dust('245,224,180',30,[-.3,-.1],[1.2,2.8],[.14,.42]);
+        parts.push(...glyphs(10,[14,22],[.14,.36],'鱼'));
+        break;
+      case 'end_loop': parts=dust('140,160,200',30,[.12,.3],[1,2],[.08,.28]); break;
+      case 'end_bianzhi':
+        parts=dust('120,150,220',26,[-.2,-.05],[1,2.2],[.1,.32]);
+        parts.push(...glyphs(8,[14,22],[.12,.3],'监'));
+        break;
+      case 'die_punch': case 'die_tv': case 'die_walkout':
+      case 'die_hospital_death': case 'die_hospital_charge': case 'die_hospital_ram': case 'die_hospital_gas':
+      case 'die_mall_rob': case 'die_mall_tear': case 'die_final_quit': case 'die_final_zhongcai_fail': case 'die_hr_outtalk':
+      case 'die_wire': case 'die_afk': case 'die_evidence':
+        parts=dust('255,60,50',40,[-.5,-.15],[1,2.5],[.12,.45]);
+        parts.push(...glyphs(12,[16,28],[.12,.32],'死'));
+        break;
+      default: parts=dust('200,215,235',26,[-.15,-.04],[1,2.2],[.1,.32]);
+    }
+  }
+
+  function resetDust(p){
+    if(p.vy<0){p.y=H+10;p.x=Math.random()*W;}
+    else if(p.vy>0){p.y=-10;p.x=Math.random()*W;}
+  }
+
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    for(const p of parts){
+      p.ph+=.02;
+      p.x+=p.vx+Math.sin(p.ph)*.12;p.y+=p.vy;
+      if(p.y<-16){p.y=H+14;p.x=Math.random()*W;}
+      if(p.y>H+16){p.y=-14;p.x=Math.random()*W;}
+      if(p.x<-14)p.x=W+10;if(p.x>W+14)p.x=-10;
+      const a=Math.max(.02,Math.min(.9,p.a));
+      if(p.glyph){
+        ctx.font='500 '+p.s+'px '+FONT;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillStyle='rgba('+p.color+','+a+')';
+        ctx.fillText(p.ch,p.x,p.y);
+      }else{
+        ctx.beginPath();
+        ctx.fillStyle='rgba('+p.color+','+a+')';
+        ctx.arc(p.x,p.y,p.s,0,7);ctx.fill();
+      }
+    }
+    for(const st of streaks){
+      st.y+=st.vy;
+      if(st.y-st.len>H+80){st.y=rand(-200,-60);st.x=rand(W*.3,W*.9);}
+      const g=ctx.createLinearGradient(st.x,st.y-st.len,st.x,st.y);
+      g.addColorStop(0,'rgba(143,208,216,0)');
+      g.addColorStop(1,'rgba(160,225,240,'+st.a+')');
+      ctx.strokeStyle=g;ctx.lineWidth=1.6;
+      ctx.beginPath();ctx.moveTo(st.x,st.y-st.len);ctx.lineTo(st.x,st.y);ctx.stroke();
+    }
+    requestAnimationFrame(frame);
+  }
+  setMode('title'); requestAnimationFrame(frame);
+
+  /* —— 场景切换（淡出演入）—— */
+  const set=document.getElementById('scene-set');
+  let swapTimer=null, clockTimer=null, clockT0=0;
+  function tickClock(){
+    const t=Date.now()-clockT0;
+    const el=set.querySelector('.punch-time');
+    if(el) el.textContent=String(Math.floor(t/3600000)).padStart(2,'0')+':'+
+      String(Math.floor(t/60000)%60).padStart(2,'0')+':'+String(Math.floor(t/1000)%60).padStart(2,'0');
+  }
+  function startClock(){ clockT0=Date.now(); tickClock(); clockTimer=setInterval(tickClock,1000); }
+  function stopClock(){ clearInterval(clockTimer); clockTimer=null; }
+  function play(key){
+    clearTimeout(swapTimer);
+    set.classList.remove('on');
+    swapTimer=setTimeout(()=>{
+      set.innerHTML='<div class="scene-inner">'+(SCENES[key]||'')+'</div>';
+      set.dataset.scene=key;
+      document.body.dataset.scene=key;
+      void set.offsetWidth;
+      set.classList.add('on');
+      if(key==='void') startClock(); else stopClock();
+    },480);
+  }
+  function clear(){
+    clearTimeout(swapTimer);
+    stopClock();
+    set.classList.remove('on');
+    swapTimer=setTimeout(()=>{set.innerHTML='';document.body.removeAttribute('data-scene');},480);
+  }
+
+  return {setMode,play,clear};
+})();
+
+/* ================= 剧情数据（原创剧本《主神也加班》） ================= */
+const STORY = {
+  start:{
+    chapter:'序章 · 加载失败',
+    title:'欢迎来到主神空间',
+    text:'你睁开眼，眼前一片蓝屏。\n蓝屏上滚动着一行小字：\n『欢迎进入无限流世界。检测到您已连续不眠工作 26 小时，符合“猝死边缘”准入标准，恭喜获得进入资格。』\n你还没反应过来，一个卡顿的机械女声响起：\n“亲，我是您的主神。检测到新玩家接入，正在为您加载新手福利……加载失败……正在重试……加载失败……”\n它清了清嗓子——原来 AI 也会清嗓子——“不重要，咱先抽技能。”',
+    choices:[
+      {t:'“等等。先说清这是什么地方、我为什么在这里、有没有五险一金。”',to:'rule',gain:{calm:1}},
+      {t:'“行吧。抽。”',to:'draw',gain:{slacker:1}},
+      {t:'（趁神不备，一拳轰向那张太白的脸）',to:'die_punch',deadly:true},
+      {t:'（站在原地不动，等它加载完）',to:'die_afk',deadlyIf:()=>Math.random()<.6}
+    ]
+  },
+  rule:{
+    chapter:'序章 · 加载失败',
+    title:'三连问',
+    text:'主神顿了两秒，可能是在现编答案：“亲，说得太复杂啦。简而言之，这里是主神空间，您需要在各个副本中完成主线任务，攒够积分就能回家啦。”\n“至于五险一金嘛……”它的声音突然变小，“这个属于公司机密，请问您还有什么要问的吗？”\n好嘛。你算是看出来了：这主神的客服话术，比你前司的外包客服还熟练。\n熟练得有点可疑。',
+    choices:[
+      {t:'“行。抽技能吧。”',to:'draw'},
+      {t:'“你刚说‘公司机密’。哪个公司？”',to:'company',gain:{calm:1}},
+      {t:'“我拒绝。先把我送回去，我 PPT 还没保存。”',to:'loop_gag',gain:{talk:1}}
+    ]
+  },
+  loop_gag:{
+    chapter:'序章 · 加载失败',
+    title:'教育片时间',
+    text:'主神的声音严肃起来：“亲，拒绝进入副本属于违规操作。按流程，您需要先观看 45 分钟安全警示教育片。”\n大屏幕上立刻开始播放：《安全生产 · 从拒绝死亡做起》。\n你试图跳过——“快进需要 10 积分。”\n“我花。”\n“积分不足。”\n你被迫看完了四十五分钟。片尾，主神贴心地弹出问卷：“请对本次观看体验打分，1 至 5 星。”\n你打了零星。系统提示：星级无效，已默认五星。',
+    choices:[
+      {t:'“……抽技能。现在。立刻。”',to:'draw',gain:{calm:1}}
+    ]
+  },
+  company:{
+    chapter:'序章 · 加载失败',
+    title:'说漏嘴',
+    text:'“…… ”主神沉默了足足五秒。\n你听见话筒那头传来按键声、打印机声，以及一句压低的争吵：“都说了别在玩家面前提公司！”\n“亲，”它重新上线，“您听错了呢，我说的是‘公事机要’。”\n“来，抽技能！”\n屏幕“啪”地弹出五个光球，不由分说，先弹为敬。',
+    choices:[
+      {t:'（伸手抽一个）',to:'draw'}
+    ]
+  },
+  draw:{
+    chapter:'序章 · 加载失败',
+    title:'新手十连',
+    text:'五个光球在你面前排成一排，散发着神圣的光——其中一个还闪了闪，像是接触不良。\n主神解说：“新手福利十连！其中必有 SSR！”\n你随手点了一个。\n金光炸裂！\n【恭喜获得 SSR 级技能：外卖满减券（满30减5，仅限店用，不可与堂食同享）】',
+    choices:[
+      {t:'“……这个技能，强度如何？”',to:'skill_talk',gain:{calm:1}},
+      {t:'“SSR 就这？你们主神空间是不是在搞诈骗？”',to:'skill_talk',gain:{talk:1}},
+      {t:'“太棒了，终于有人理解我了。”',to:'skill_talk',gain:{slacker:1}}
+    ]
+  },
+  skill_talk:{
+    chapter:'序章 · 加载失败',
+    title:'技能说明',
+    text:'主神的声音突然专业起来：“亲，满30减5是非常强力的生存技能呢。在副本中，多一件物资，就多一分活命的希望。而本技能帮您少花5元，四舍五入就是多赚5元，赚就是活命，活命就是——”\n“你是不是在念话术稿？”\n“……亲，您也可以选择不听讲座，直接进入副本。”\n远处，一扇写着『副本入口』的门缓缓打开，门缝里漏出冷气。门边贴着一张纸：『员工通道，禁止抢跑，违者扣积分。』',
+    choices:[
+      {t:'“进副本前，先看看这地方还有什么规矩。”',to:'void_walk',gain:{calm:1}},
+      {t:'“规则不如行动。进！”',to:'mission',gain:{talk:1}}
+    ]
+  },
+  void_walk:{
+    chapter:'序章 · 加载失败',
+    title:'主神空间一日游',
+    text:'你绕着主神空间转了一圈。说是空间，其实就是个灯光昏暗的大厅。\n左墙贴着褪色的『业绩之星』光荣榜，榜上第一名是个笑脸头像，下面一行小字：『连续 3241 天全勤』。\n右墙有台自动贩卖机，货品是『复活币（当日有效）』和『生命药水（不含糖）』。机器最下面贴着一张纸条：『本机出售商品与本公司无关』。\n大厅角落，居然还有一台打卡机。它幽幽地亮着，像一颗不会熄灭的启明星。\n你感到这地方哪里不对劲。但你说不上来。',
+    choices:[
+      {t:'“这地方……怎么像个公司？”',to:'company2',gain:{calm:1}},
+      {t:'（鬼使神差地，你按下了打卡机的按钮）',to:'dagua',gain:{slacker:1}}
+    ]
+  },
+  dagua:{
+    chapter:'序章 · 加载失败',
+    title:'打卡机',
+    text:'你按下打卡键。\n“滴。打卡成功。当前时间 00:00:01。您已连续工作 0 分钟。明日打卡请勿迟到。”\n下一秒，你听见主神小声欢呼：“耶，复购了！”\n……？',
+    choices:[
+      {t:'（带着一肚子疑问走向副本入口）',to:'mission'}
+    ]
+  },
+  company2:{
+    chapter:'序章 · 加载失败',
+    title:'氛围感',
+    text:'主神火速上线：“亲，这是一种氛围感设计，营造‘奋斗’主题，提升玩家代入感。”\n“那光荣榜上的头像，怎么越看越像我前同事？”\n“……亲，人脸相似是常见巧合，请不要过度联想。”\n它顿了顿，转移话题：“您的首个副本已就绪：《午夜凶铃》同人篇。主线任务：存活七天。失败惩罚：扣除本月全勤奖。”\n“全勤奖？”你愣住了，“你们无限流，失败还罚全勤？”\n“……以及命。”主神补充，“主要罚命。全勤奖是附加题。”',
+    choices:[
+      {t:'（走向副本入口）',to:'mission',gain:{calm:1}}
+    ]
+  },
+  mission:{
+    chapter:'序章 · 加载失败',
+    title:'传送前的插曲',
+    text:'主神的声音严肃起来：“即将传送。温馨提示：副本内死亡即真死，但可花费 100 积分购买复活币。复活后需观看 45 分钟安全警示教育片，快进需额外收费。”\n“现在开始传送。5、4、3——等等，项目经理打电话来了，稍等。”\n……主神空间安静了很久。\n你听见它小声说：“来了来了，我说的是‘稍等’。”',
+    choices:[
+      {t:'“……所以到底传不传送？”',to:'tv',gain:{talk:1}},
+      {t:'（悄悄把大厅的打卡机踹了一脚）',to:'tv',gain:{slacker:1}}
+    ]
+  },
+
+  /* ================= 第一章 · 午夜凶铃 ================= */
+  tv:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'不是贞子，是员工',
+    text:'一片雪花。\n你站在一间日式老屋里，面前是一台 4:3 的老电视。按流程，七天后这电视里会爬出一位女士。按照流程，你现在应该感到恐惧。\n但你只是感到熟悉。\n——这房间的布局，跟你公司茶水间隔壁的休息舱一模一样。\n电视沙沙地响起来。枯井，长发，一个白衣身影开始往外爬。\n爬得极慢。两分钟过去，才出来一只左手。\n你打了个哈欠。',
+    choices:[
+      {t:'“按无限流的规矩，我现在应该拔电源。”',to:'unplug',gain:{calm:1}},
+      {t:'“要不要给你递个扳手？”',to:'offer',gain:{talk:1}},
+      {t:'“能不能快点？我赶时间，明天还要上班。”',to:'hurry',gain:{slacker:1}},
+      {t:'（抄起椅子，把这台破电视砸个稀烂）',to:'die_tv',deadly:true},
+      {t:'（伸手去拔电视后面的线）',to:'die_wire',deadlyIf:()=>Math.random()<.7}
+    ]
+  },
+  unplug:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'贴纸',
+    text:'你蹲下身，准确地找到了电源线——没有电源线。\n电视背后空空如也，只有一张贴纸：『本电视由“无限宇宙科技”提供，如有故障，请勿自行修理。』\n“无限宇宙科技”。你把这个名字记在心里。\n电视里的女士终于爬出了一个头。她抬起头，长发下露出一张惨白的脸。四目相对。\n“你好，”她说，“我是这个副本的 NPC，贞子。本名周小唯。冒昧问一下，你……是来替班的吗？”',
+    choices:[
+      {t:'“……不是。我是来活命的。”',to:'first_talk',gain:{calm:1}}
+    ]
+  },
+  offer:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'敬业',
+    text:'“递个扳手？”贞子停了下来，认真思考：“有螺丝。不过算了，钻出来是规矩，走捷径要扣绩效。”\n她继续爬。\n你只好蹲在旁边，替她看着时间——爬完全程，一共七分四十三秒，比上次快了零点二秒。\n“进步了。”你给她鼓了个掌。\n她爬出电视，矜持地点了点头：“谢谢。很少有人会看到这一步。”',
+    choices:[
+      {t:'“你出场这么费劲，一定有很多话想说。”',to:'first_talk'}
+    ]
+  },
+  hurry:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'慢工出细活',
+    text:'“快不了。”贞子的声音闷闷的，“规定要求‘缓慢而压迫’。我爬快了，会被判定为‘恐怖氛围不足’，要扣钱。”\n“你们鬼，还打卡？”\n“鬼也分正式工和外包。”她叹了口气，“我是外包。”\n她终于爬了出来，从袖子里掏出一部手机——屏幕碎了三分之一，还贴着张钢化膜。',
+    choices:[
+      {t:'“外包……你们这行，也有三方合同？”',to:'first_talk',gain:{calm:1}}
+    ]
+  },
+  first_talk:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'贞子的需求',
+    text:'“接入正题吧。”贞子打开一个叫『待办』的文档，密密麻麻列了 47 项，“接下来七天，你要帮我做三件事。做完，我就能下班了。”\n“等一下。”你说，“按剧本，你不应该杀我吗？”\n“杀你啊……”她翻了翻文档，“哦，有的。在尾页。”\n她把文档拉到最底：『第 48 项：杀死玩家（可选，积分+5）。』\n“客户给的积分太少了。”贞子诚实地说，“我打算走个流程。主要你能帮我完成前三项，咱们各得其所。”',
+    choices:[
+      {t:'“成交。但先说好，我不加班。”',to:'task_list',gain:{talk:1}},
+      {t:'“第 48 项‘可选’是什么意思？”',to:'task_list',gain:{calm:1}},
+      {t:'“你手机里的待办，能截图发我一份吗？我借鉴一下格式。”',to:'task_list',gain:{slacker:1}},
+      {t:'“关我屁事。我要回家。”（转身往门外走）',to:'die_walkout',deadly:true}
+    ]
+  },
+  task_list:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'三件任务',
+    text:'贞子开始布置任务：\n“第一件：帮我改简历。我想跳出这个副本。”\n“第二件：帮我写本周周报。进度我一字没写，因为本周我一项工作都没干。”\n“第三件：明天 HR 要找我‘一对一沟通’。你陪我一起去，给我壮胆。”\n你看着她，忽然有点理解她了。\n“你的需求变更了三次，”你严肃地说，“加需求要排期。”',
+    choices:[
+      {t:'“先改简历。你的优势是什么？”',to:'resume',gain:{calm:1}},
+      {t:'“先写周报。没干活怎么写周报？——等等，这我熟啊。”',to:'weekly',gain:{slacker:1}},
+      {t:'“先聊聊你们这儿的‘公司’。”',to:'company3',gain:{calm:1}}
+    ]
+  },
+  resume:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'简历优化',
+    text:'贞子的简历写到一半：\n「工作经历：1998年至今，负责《午夜凶铃》项目核心用户触达（吓人）。」\n你皱了皱眉：“太弱了。改成这样：主导千万级恐怖内容分发，精通跨媒介用户触达（电视／录像带／梦境），单项目创下 90% 用户主动逃离触达场景的行业纪录。”\n贞子眼睛亮了：“再润色润色？”\n“再加一条：擅长从屏幕内爬出屏幕外，跨界能力强。”\n她飞快记笔记。纸条背面，你瞥见一行小字：『转岗申请：想做个不吓人的岗位。』',
+    choices:[
+      {t:'“好了。下一件，周报。”',to:'weekly',gain:{talk:1}}
+    ]
+  },
+  weekly:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'周报的艺术',
+    text:'没干活，怎么写出三千字周报？\n你口述，贞子打字：\n『本周工作概述：持续推进恐怖氛围建设。』\n『详细进展：优化了爬行路径规划算法（其实少走了一段）；对用户恐吓敏感度进行了 A/B 测试（其实有人没被吓到）；与跨部门同事完成需求对齐（其实和保洁阿姨聊了天）。』\n『下周计划：』你停了停，“继续吓人。”\n贞子哭了：“你是怎么把‘什么都没干’写得像 KPI 拉满的？”\n“无他，唯手熟尔。”',
+    choices:[
+      {t:'“对了，明天 HR 谈话，你想好说什么了吗？”',to:'hr_prep'}
+    ]
+  },
+  company3:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'员工守则',
+    text:'“公司？”贞子警觉地左右张望，压低声音：“别在副本里提这个。我头上的监控会录像。”\n她犹豫了一下，在手机上打出一行字给你看：\n『我只知道外包合同上盖的章是“无限宇宙科技”。老板我没见过。但每层副本都贴着同一条员工守则——“幽怨可以，抱怨不行。”』\n你点点头。这几个字，越品越冷。\n你连夜帮她把简历和周报都办了。天快亮时，贞子小声说：“谢谢你。明天……就是 HR 谈话。”',
+    choices:[
+      {t:'“我陪你去。”',to:'hr_prep'}
+    ]
+  },
+  hr_prep:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'一对一沟通',
+    text:'第二天，传说中的 HR 来了。\n先是一阵高跟鞋声，然后整间老屋的电灯以 0.5 赫兹的频率开始闪烁。一个穿黑色套装的人影从墙里走出来，腋下夹着一沓纸，那沓纸的厚度足以砸死一个人。\n“周小唯。”她的声音没有温度，“本季度你的恐怖指数环比下降 47%，用户尖叫转化率全司倒数第一。我们谈谈。”\n贞子在你身后小声说：“她，甄主任。副本 BOSS。”',
+    choices:[
+      {t:'“您好，我是周小唯的员工代表，请先出示您的考核依据。”',to:'hr_fight',gain:{talk:1}},
+      {t:'“先别谈绩效，谈工资。”',to:'hr_fight',gain:{slacker:1}},
+      {t:'（不急着开口，先观察那沓考核材料）',to:'hr_observe',gain:{calm:1}}
+    ]
+  },
+  hr_observe:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'监控',
+    text:'你定睛一看，甄主任手中那沓“考核材料”的最上面一页，正是你昨天帮贞子写的周报——上面打着一个红色的大大的叉，批注：『水字数，敷衍，重写。』\n你倒吸一口凉气。这 HR 真识货。\n不对。比这更可怕——HR 能看到你们昨天才写完的东西。\n这副本里的“监控”，比你想的还要密。',
+    choices:[
+      {t:'（上前一步，挡在贞子身前）',to:'hr_fight',gain:{calm:1}}
+    ]
+  },
+  hr_fight:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'绩效之战',
+    text:'HR 冷笑一声：“代表？一个玩家，也配代表员工？”\n她把那沓纸往桌上一拍。屋里的电视机自己开了，屏幕上正播放贞子爬行的 360 度无死角复盘视频，旁边还贴心地配着数据分析：平均爬速、尖叫转化率，同行业对比——末位。\n“数据不会骗人。”甄主任的眼镜片反着光，“本月甄别计划，周小唯，建议优化。”\n“优化”两个字落地，贞子的身体肉眼可见地开始变透明。',
+    choices:[
+      {t:'“数据不会骗人，可人会。这份数据的取数口径是什么？样本量呢？对照组呢？”',to:'hr_retort',gain:{calm:1}},
+      {t:'“优化？你们随便优化人，符合程序吗？书面通知了吗？”',to:'hr_retort',gain:{talk:1},deadlyIf:s=>s.stats.talk<2,deadlyTo:'die_hr_outtalk'},
+      {t:'“在优化她之前，先看看这个。”你掏出了贞子的合同复印件。',to:'hr_contract',gain:{calm:1},setFlag:'contract'}
+    ]
+  },
+  die_hr_outtalk:{
+    ending:true, chapter:'死亡 · 午夜凶铃', title:'说不过 HR',
+    tag:'【死亡 · 说不过 HR】',
+    text:'“程序？”甄主任推了推眼镜，“你一个玩家，跟我谈程序？”\n她翻开一本厚达八百页的《员工手册》，从第一条读到第八百条，语速快得像机关枪。\n你想插嘴，插不上。\n你想反驳，找不着词。\n三分钟后，你被她的话术绕进了死循环，大脑当场宕机。\n贞子在旁边小声提醒：“亲，跟 HR 吵架，嘴炮等级不够是会被说死的。”\n你倒下时，甄主任在你的死亡证明上写：『死于逻辑闭环。建议来世提升沟通能力。』'
+  },
+  hr_retort:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'教我做绩效',
+    text:'甄主任一愣：“你在教我做绩效？”\n“不敢。”你微笑，“我只是发现，按贵司的规定，末位淘汰需要提前三十日书面通知，并支付补偿金——N 或 N+1，看你们谈不谈得到一起。”\n甄主任的眼镜滑下来三毫米。\n她翻了半天那沓纸，声音发干：“这……这是副本规定之外的……”\n“删掉了一个词。”你双手抱胸，“这叫《劳动法》。”\n你顺手从口袋里掏出一本《劳动法》口袋书。别问哪来的——积分商城 9.9 包邮。\nHR 的后背开始冒火星。',
+    choices:[
+      {t:'（上前一步，字正腔圆，喊出那个词）',to:'boss_defeat'}
+    ]
+  },
+  hr_contract:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'公章',
+    text:'你把合同复印件拍在桌上：“这是周小唯的外包合同。甲方盖的章，是‘无限宇宙科技’。”\n甄主任的瞳孔骤缩：“你从哪里拿到的？！”\n“这不重要。”你点了点公章的位置，“重要的是，外包合同不是劳动合同。贵司规避劳动关系的证据，一份就够仲裁了。”\nHR 的指尖开始冒烟。她扑向合同，动作快成残影——\n“复印件。”你提醒，“原件我存了云盘，同步给了三个好友。”\n甄主任发出一声凄厉的尖叫，青烟四起。\n贞子看呆了：“我入职这么久，第一次见她这样。”\n你小心收起合同复印件——它比你想的更有用。',
+    choices:[
+      {t:'“小周，坐。我们聊点别的。”',to:'after_boss'}
+    ]
+  },
+  boss_defeat:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'厉鬼的软肋',
+    text:'甄主任退后半步。她的身体不再闪烁，而是开始虚化——像一段被删除的代码，从边缘泛起马赛克。\n“你……你要干什么？”\n“干这个。”\n你跨上一步，气沉丹田，喊出四个字：\n“劳、动、仲、裁！”\n轰的一声，甄主任被这四个字轰成一阵青烟。满屋的纸页像雪一样飘落。\n贞子从呆滞中回神，呆呆地说：“她怕这个？她居然怕这个？”\n“废话。”你掸了掸袖子，“厉鬼也怕离职证明。”',
+    choices:[
+      {t:'（回头，把飘落到肩上的纸轻轻拂掉）',to:'after_boss'}
+    ]
+  },
+  after_boss:{
+    chapter:'第一章 · 午夜凶铃',
+    title:'下班铃',
+    text:'贞子深吸一口气，郑重向你鞠了一躬：“谢谢你。周报批了，简历交到‘转岗窗口’了——虽然窗口排队排到了 2035 年，但至少交了。”\n她递给你一张皱巴巴的纸：“这是奶茶单。上一次有人请我喝奶茶，还是 1998 年。这是我最珍贵的东西，送你了。”\n奖励结算中……主神的声音不合时宜地响起：“恭喜完成副本支线：拯救外包员工。奖励积分 100。”\n它顿了顿，用只有你能听见的音量补充：“另外，甄主任的诉状——啊不是，是甄主任的离职流程，已启动。”',
+    choices:[
+      {t:'“主神，你连‘诉状’都准备好了，是几个意思？”',to:'ch2_start',gain:{calm:1}},
+      {t:'“谢谢。贞子，你有机会也去看看外面的世界。”',to:'ch2_start',gain:{talk:1}},
+      {t:'“结算结算。下一个副本是什么？”',to:'ch2_start',gain:{slacker:1}}
+    ]
+  },
+
+  /* ================= 第二章 · 恐怖医院 ================= */
+  ch2_start:{
+    chapter:'第二章 · 恐怖医院',
+    title:'病的是这个世界',
+    text:'白光一闪。\n刺鼻的消毒水味。白炽灯管滋滋作响，走廊一眼望不到头。墙上刷着一行红字：『您的健康，我们的 KPI。』\n主神发布任务：“主线任务：七十二小时内逃出医院。失败惩罚：继续住院。”\n“……继续住院算哪门子惩罚？”\n“亲，住院费按天计。”\n你刚想骂人，广播响了：“尊敬的 3 号床林小满，您已欠费 250 元，请尽快续缴。重复，欠费 250 元。”',
+    choices:[
+      {t:'“先去会会收费处。”',to:'cashier',gain:{calm:1}},
+      {t:'“先摸清这鬼医院的底细。”',to:'ward',gain:{slacker:1}},
+      {t:'“我欠费 250。这个数不吉利，我不付。”',to:'gag_nurse',gain:{talk:1}}
+    ]
+  },
+  gag_nurse:{
+    chapter:'第二章 · 恐怖医院',
+    title:'讨价还价',
+    text:'你对着广播喊道：“250 不吉利。抹个零。”\n广播沉默了三秒，居然回复了：“亲，医院有规定，费用不支持议价。但可以为您把欠费改为 249.5 元。”\n“……”\n“四舍五入到元，还是 250 元。”\n“你们这系统，就没病吗？”\n广播温柔地说：“医院是治病救人的地方。系统若有病，也在本院治疗，费用另算。”',
+    choices:[
+      {t:'（骂骂咧咧地走向收费处）',to:'cashier'}
+    ]
+  },
+  ward:{
+    chapter:'第二章 · 恐怖医院',
+    title:'1 号床的老刘',
+    text:'你推开一间病房。三张床，两张空着，第三张床上坐着一个包着纱布的人，正对着墙上的小电视看医疗剧。\n“新来的？”他头也不回，“我是 1 号床，老刘。友情提示：这医院白天查房，晚上查费用。鬼护士比人护士勤快一百倍——毕竟她们不用睡觉，也没有加班费。”\n“你为什么在这？”\n“逃不出去了呗。”老刘嗑着瓜子，“住院费每天滚雪球，欠得越多，越出不了院。到明年我就满五年了，老病人享受八折。”',
+    choices:[
+      {t:'“五年？就没别的出路吗？”',to:'basement',gain:{calm:1}},
+      {t:'“谢谢刘哥。我先去会会收费处。”',to:'cashier'}
+    ]
+  },
+  basement:{
+    chapter:'第二章 · 恐怖医院',
+    title:'员工通道',
+    text:'老刘压低声音：“有。地下室 A-13 杂物间，墙后面有条员工通道，但需要工牌。”\n“我上次偷瞄到，保洁王姐的工牌上写着：无限宇宙科技，后勤部。”\n又是无限宇宙科技。你把它记在本子上。\n“还有更邪门的。”老刘把瓜子壳一捏，“地下室有个机房，墙上的系统日志一天也没停过，写着什么‘本副本由无限宇宙科技提供技术支持 V2.3.1，投诉请拨 400-888-6666，转人工请按 0’——”\n“转人工有人接吗？”\n“提示音说：人工服务时间，永远不在。”',
+    choices:[
+      {t:'（把 400 电话存进手机，再去收费处）',to:'cashier'}
+    ]
+  },
+  cashier:{
+    chapter:'第二章 · 恐怖医院',
+    title:'收费处',
+    text:'收费处窗口后坐着一个鬼护士，脸色青白，工牌挂在胸前：『收费部 · 小张』。\n“缴费。”你数出手里仅有的副本货币。\n小张扫了一眼：“不够。您还欠 250。”\n“我上哪给你变 250 出来？”\n“可以贷款。”小张推出一块易拉宝，上面写着：『院内贷款，日息 0.0001%，帮忙转发朋友圈再减 5 元。』\n“日息都精确到小数点后四位了。你们这坑，挖得还挺细。”',
+    choices:[
+      {t:'“我选择死亡。”当场躺下，再也没起来。',to:'die_hospital_death',deadly:true},
+      {t:'“你们医院的收费标准，有医保目录吗？”',to:'yibao',gain:{calm:1}},
+      {t:'“我不交钱。我逃。”',to:'escape',gain:{talk:1},deadlyIf:()=>Math.random()<.4,deadlyTo:'die_hospital_charge'},
+      {t:'（抢过收费员的印章，往大门冲）',to:'die_hospital_charge',deadly:true}
+    ]
+  },
+  die_gag:{
+    chapter:'第二章 · 恐怖医院',
+    title:'复活提示',
+    text:'你当场躺下。\n三秒后，主神的声音在耳边响起：“亲，检测到玩家主动死亡。死亡不是退出方式呢。”\n“已为您自动复活。根据规定，复活后需观看 45 分钟安全警示教育片。”\n大屏幕开始播放：《安全生产 · 从拒绝死亡做起》。\n“快进。”\n“快进需要 10 积分。”\n“我花。”\n“积分不足。”\n你被迫又看了一遍。片尾，主神弹出一句贴心提示：“逃费不能解决问题，解决情绪。”',
+    choices:[
+      {t:'（从地上爬起来，换一种死法……不，换一种活法）',to:'cashier'}
+    ]
+  },
+  yibao:{
+    chapter:'第二章 · 恐怖医院',
+    title:'知情权',
+    text:'“医保？”小张僵住了，眼珠子咯吱咯吱转，“我、我们医院……不在目录里的项目，恕不解释。”\n“好。那请你出具以下材料。”你掰着手指，“收费许可证、价格公示表、每一项费用的明细清单，还有你们和医保局签的协议。”\n“另外，患者有知情权。请提供贵院《医疗服务价格项目规范》。”\n小张的内核发出嗡嗡的响声，头顶冒出一缕烟。\n“查询……失败……需要上级授权……系统过热……”\n“砰。”\n她宕机了。收费窗口的灯全灭。',
+    choices:[
+      {t:'“承让。我进去找出院的路。”',to:'locker',gain:{calm:1}}
+    ]
+  },
+  escape:{
+    chapter:'第二章 · 恐怖医院',
+    title:'108 个收费口',
+    text:'你转身就跑。跑过三条走廊，拐角处又出现一个收费窗口。\n连收费窗口都长得一模一样。墙上写着：『本院共设 108 个收费口，总有一个与你相遇。』\n你继续跑。收费橱窗一扇扇亮起，像无数只眼睛。\n广播温柔地说：“逃费不是出路。缴费才是。”\n你气喘吁吁地停下，索性不跑了——你想起贞子的口头禅：预算有限，省点力气。',
+    choices:[
+      {t:'（先去员工更衣室，弄张能刷门的卡）',to:'locker',gain:{slacker:1}},
+      {t:'“去他的卡！”（转身朝最近的大门猛撞）',to:'die_hospital_ram',deadly:true}
+    ]
+  },
+  locker:{
+    chapter:'第二章 · 恐怖医院',
+    title:'王姐的年假',
+    text:'你摸到员工更衣室。柜子都锁着，只有一个柜门虚掩——边上贴着值班表：『本周保洁：王姐。王姐请了年假。』\n柜子里挂着一张工牌，照片上是一位笑着的大姐，姓名：王翠芬，部门：后勤部。\n你把工牌挂在自己脖子上，对着镜子照了照。\n别说，还有三分神似——如果你也四十七岁的话。\n“王姐，年假愉快。”你对着照片小声说，“门，我替你刷。”',
+    choices:[
+      {t:'（前往地下室 A-13）',to:'payroll'},
+      {t:'（嫌这柜子太慢，抄起灭火器砸开旁边的锁）',to:'die_hospital_gas',deadly:true}
+    ]
+  },
+  payroll:{
+    chapter:'第二章 · 恐怖医院',
+    title:'机房',
+    text:'地下室 A-13。工牌在门禁上一刷——\n“滴。王翠芬，欢迎上班。”\n机房不大，一台老式服务器嗡嗡作响，屏幕上滚动着系统日志：\n『副本《恐怖医院》V2.3.1 运行正常。在线玩家 1 人。NPC 在线 108 人。』\n你滚动页面，找到一条：『本副本由无限宇宙科技提供技术支持。投诉请拨 400-888-6666，转人工请按 0（人工服务时间：永远不在）。』\n你鬼使神差地，把投诉电话存进手机。\n然后你点开『出院审批』，替自己签了字。\n广播响起：“3 号床林小满，出院手续已办结。祝您康复。”\n你走出医院大门，天光大亮。保安亭里，一位保安鬼朝你脱帽致意，考勤机上他的状态从『旷工』变成了『全勤』。',
+    choices:[
+      {t:'“主神，结算吧。”',to:'ch3_start',gain:{slacker:1},setFlag:'log'},
+      {t:'“先别结算。这个‘无限宇宙科技’，到底是谁？”',to:'doubt',gain:{calm:1},setFlag:'log'}
+    ]
+  },
+  doubt:{
+    chapter:'第二章 · 恐怖医院',
+    title:'疑点',
+    text:'你把线索摆开：\n贞子合同上的章：无限宇宙科技。\n医院的系统日志：无限宇宙科技 V2.3.1。\n主神空间里的打卡机、业绩榜、『禁止抢跑，违者扣积分』。\n以及主神那句说漏嘴的『公司机密』。\n“主神。”你缓缓抬头，望着虚空，“这不是无限流。”\n“……”\n“这是一家公司。”\n虚空里安静了很久，久到你怀疑它掉线了。\n然后，主神用很小的声音说：“亲，您知道的太多了。”',
+    choices:[
+      {t:'“那就让我知道得更多一点。”',to:'ch3_start',gain:{calm:1}}
+    ]
+  },
+
+  /* ================= 第三章 · 积分商城 ================= */
+  ch3_start:{
+    chapter:'第三章 · 积分商城',
+    title:'九块九包邮的刀',
+    text:'回到主神空间。\n大屏幕上开出结算单：『副本《恐怖医院》：完成度 100%。奖励积分 250。』\n“250？”\n“亲，原积分 500，扣除您在院内未缴纳的住院费 250。谢谢理解。”\n你无话可说。\n商城大门为你敞开。你走进去，被眼前的景象震撼了：\n横幅拉满——『积分商城，跳楼价！』『断魂刀，9.9 包邮！』『满 30 减 5！』\n每件商品下都有小字：『图片仅供参考』『最终解释权归本公司所有』『不支持七天无理由退货（因為七天之後你未必還活著）』。',
+    choices:[
+      {t:'“是时候动用我的 SSR 满减券了。”',to:'mall_buy',gain:{slacker:1}},
+      {t:'“先看看这商城里最贵的东西是什么。”',to:'mall_vip',gain:{calm:1}},
+      {t:'“不买了。我要见运营。”',to:'mall_complain',gain:{talk:1}}
+    ]
+  },
+  mall_buy:{
+    chapter:'第三章 · 积分商城',
+    title:'满减之力',
+    text:'你豪掷满减券，买下一把『断魂刀（精品）』。\n“支付成功！满 30 减 5，实付 25 积分。”\n到货一看：塑料的。刀背刻着一行小字：『商品为游戏道具，请勿用于现实生活。』\n“你们这刀……能砍谁？”\n客服回复：“亲，砍价可用。”\n你决定把这把刀收起来。砍谁都不好用，砍价正好。',
+    choices:[
+      {t:'（收好塑料刀，在商城的长椅上坐下）',to:'ch3_main'},
+      {t:'（举起塑料刀，大喊“打劫！把积分全交出来”）',to:'die_mall_rob',deadly:true},
+      {t:'（把塑料刀掰断，看看里面是什么）',to:'die_mall_rob',deadlyIf:()=>Math.random()<.8}
+    ]
+  },
+  mall_vip:{
+    chapter:'第三章 · 积分商城',
+    title:'VIP 柜台',
+    text:'商城最深处，有个不起眼的柜台，写着『VIP 服务』。\n“你好。”玻璃后的鬼店员笑容标准，“请问有什么可以帮您？”\n“最贵的东西。”\n她伸出一根手指，指向价目表第一行：\n『复活币（永久版）：999999 积分。』\n“夺少？”\n“或者，”她压低声音，“HR 谈心豁免券：99998 积分。已售出 0 份。”\n你看着那行『已售 0 份』，忽然对这个世界里的人充满了理解。',
+    choices:[
+      {t:'“谢谢。我再逛逛。”',to:'ch3_main'}
+    ]
+  },
+  mall_complain:{
+    chapter:'第三章 · 积分商城',
+    title:'客服只有一个',
+    text:'“我要见运营。”\n“亲，”主神上线，“您对商城有什么不满吗？”\n“太多了。比如，复活币为什么当日有效？”\n“亲，死而复生属于限时福利呢。”\n“那快进教育片为什么收费？”\n“亲，跳过广告需要开通会员。”\n“那为什么你们商城的客服……也只有你一个？”\n“…… ”\n主神沉默了一会儿，小声说：“因为全公司就我一个人在岗。”',
+    choices:[
+      {t:'“全公司……就你一个？”',to:'ch3_main',gain:{calm:1}}
+    ]
+  },
+  ch3_main:{
+    chapter:'第三章 · 积分商城',
+    title:'梳理',
+    text:'你在商城的长椅上坐下，开始梳理：\n这里的“玩家”，根本不是天选之人。\n这里的“NPC”，全都戴着工牌。\n这里的一切——副本、积分、KPI——都是一家公司的框架。\n“主神，你们不是神。”\n主神没有立刻回答。过了很久，它才开口，声音不再卡顿，也不再喊“亲”：\n“……该来的还是来了。”\n“玩家 987654321 号，不，林小满，你想知道真相吗？\n“那就先在这份《保密协议》上签字。”',
+    choices:[
+      {t:'“签。”',to:'truth',gain:{calm:1}},
+      {t:'“签之前……我看看违约金条款。”',to:'fine',gain:{calm:1}},
+      {t:'“不签。但我已经猜到了——这个世界，跟我有关。”',to:'truth_direct',gain:{talk:1}},
+      {t:'“签个屁！”（一把将保密协议撕成碎片）',to:'die_mall_tear',deadly:true}
+    ]
+  },
+  fine:{
+    chapter:'第三章 · 积分商城',
+    title:'第十五条',
+    text:'你把协议翻到第七条：『如乙方泄密，甲方有权扣除乙方全部积分，并收回其在现实世界的年终奖。』\n“年终奖？”你猛地抬头，“你们凭什么扣我的年终奖？”\n“凭您入职时签的《员工手册》。”\n“签《员工手册》的时候，可没人说里面有这个。”\n“第十五条，小字，链接里的附件里的附录。您当年拉到底直接点了同意——系统有记录，公证过。”\n你翻回协议首页。甲方落款处，清清楚楚盖着一个红色公章：\n——无限宇宙科技有限公司。法人代表：王守一。\n王守一，正是你的老板，王总。',
+    choices:[
+      {t:'（深呼吸。然后笑了）',to:'truth',gain:{calm:1}}
+    ]
+  },
+  truth:{
+    chapter:'第四章 · 真相',
+    title:'公司',
+    text:'主神——不，准确说，是你司的客服 AI『小宇宙』——开始播放一段视频。\n视频里，你的老板王总站在年会讲台上，红光满面，PPT 上写着：\n《无限宇宙：让每一次加班，都成为一场冒险》。\n“员工们！”王总挥着手，“我们推出沉浸式办公系统！戴上头显，办公与娱乐完美结合！业绩是副本，KPI 是 Boss，加班也不觉得累！”\n台下掌声雷动——视频是剪辑的，掌声是音效。\n“你，林小满。”王总的脸凑近镜头，“连续加班 26 小时，是我们系统内测的——不，最佳人选！”\n你想起来了。那晚你不是睡着了。\n你累晕在工位上，被戴上了头显。\n你从来就没有离开过公司。',
+    choices:[
+      {t:'“所以……我还在加班？”',to:'truth2',gain:{slacker:1}},
+      {t:'“所以，贞子、老刘、保安……都是真人？”',to:'truth3',gain:{calm:1}}
+    ]
+  },
+  truth_direct:{
+    chapter:'第四章 · 真相',
+    title:'我不签，但我知道',
+    text:'“不签也行。”主神——也许该叫它小宇宙——叹了口气，“反正您猜得也差不多了。”\n它一五一十地全说了，像水库开了闸：\n你所在的公司，王总的『无限宇宙科技有限公司』，把整个"无限流"当成了干活工具。所谓副本，是项目；所谓 BOSS，是 KPI 具象化；所谓玩家，是员工。\n“那我为什么想不起来？”\n“因为头显会选择性屏蔽记忆。”小宇宙小声说，“王总说，忘掉自己是员工，才能全身心投入工作。”\n“投入个鬼。这叫加班。”',
+    choices:[
+      {t:'“小宇宙。带我去见王总。”',to:'truth2',gain:{calm:1}}
+    ]
+  },
+  truth2:{
+    chapter:'第四章 · 真相',
+    title:'工时',
+    text:'小宇宙小声说：“不止呢。您在‘无限流’里度过的每一分钟，都计入工时。”\n“那我这算不算……带薪冒险？”\n“王总说，虚拟世界里的时间不额外计加班费。因为虽然您人在冒险，但精神上是在为公司创造氛围感。”\n你突然很想念贞子。至少她能爬出电视。\n而你连头显都摘不下来——摘取权限，在『终面』之后才开放。\n“终面？”\n“王总给您安排的最终考核。”小宇宙的声音更小了，“您看，那扇门，开了。”\n走廊尽头，一扇金碧辉煌的门缓缓打开，门上写着：会议室。',
+    choices:[
+      {t:'（整理衣领，推门而入）',to:'final_meeting'}
+    ]
+  },
+  truth3:{
+    chapter:'第四章 · 真相',
+    title:'同事',
+    text:'小宇宙说：“对。贞子是内容部的小周。老刘是测试部的老刘。保安是物业的小李。他们都是真人。只是有人以为自己死了，有人以为自己只是上班。”\n“你们把同事变成鬼，还扣他们全勤？”\n“不是我们。”小宇宙的声音里有一丝委屈，“是系统规则。王总说，规范要统一：鬼也要有鬼的绩效。”\n“那他老人家呢？”\n“王总在顶层，等您参加‘终面’。他说，林小满是他最看好的员工。”\n“因为我连续工作 26 小时？”\n“因为您被系统判定为‘免维护型人才’。”',
+    choices:[
+      {t:'“行。那就去会会这场终面。”',to:'final_meeting',gain:{calm:1}}
+    ]
+  },
+
+  /* ================= 第四章 · 终面 ================= */
+  final_meeting:{
+    chapter:'第四章 · 终面',
+    title:'项目复盘会',
+    text:'传送的光芒落下。\n你出现在一间豪华会议室。长桌尽头，坐着一个发际线退潮、笑容饱满的中年男人：王总。\n背后大屏上投影着 PPT，标题是《无限宇宙 Q4 复盘会》。\n“小林啊。”王总张开双臂，“欢迎参加终面。谈谈吧，这段时间在系统里的感受如何？”\n你注意到桌子另一头摆着一个职位牌，上面写着你的名字——入职手续都替你办好了。\n“感受很多。”你说，“比如小周的转岗申请，什么时候批？”\n王总笑容不变：“谈正事。终面就一道题。你愿意留下来，成为无限宇宙的正式员工吗？”\n大屏切换。四份 offer 弹出，金光闪闪，待遇各不相同：月薪 35k；积分翻倍；弹性工作；以及——以上职位的"饼"。',
+    choices:[
+      {t:'“我选 D。你画的饼，够我啃到退休。”',to:'offer_d',gain:{talk:1}},
+      {t:'“先别急。终面之前，我有个反问。”',to:'counter',gain:{calm:1}},
+      {t:'“王总。您给自己开的工资，走的是公司的账吧？”',to:'counter2',gain:{calm:1}},
+      {t:'“我选 A。当场辞职，走人。”（起身就走）',to:'die_final_quit',deadly:true}
+    ]
+  },
+  offer_d:{
+    chapter:'第四章 · 终面',
+    title:'饼',
+    text:'王总大笑：“小林就是幽默！所以，你的答案是？”\n你把职位牌转过来，反扣在桌上，起身。\n“我的答案是——王总，咱们先复盘一下这个‘项目’。”\n“项目名：无限宇宙。”\n“成本：全体员工的头发、睡眠、和半条命。”\n“收益：一部 45 分钟的教育片、一把 9.9 的塑料刀、和一个卡顿的客服 AI。”\n“以及，”你顿了顿，“0 成交的 HR 豁免券，和 108 个排队收费的鬼窗口。”\n王总的笑容，第一次裂开一条缝。',
+    choices:[
+      {t:'（把一沓证据，一样一样摆上长桌）',to:'final_choices',gain:{talk:1}}
+    ]
+  },
+  counter:{
+    chapter:'第四章 · 终面',
+    title:'反问',
+    text:'“问吧。”王总翘起二郎腿，风度翩翩。\n“您这套系统上线以来，玩家留存率多少？”\n“呃，数据在后台——”\n“那系统的日活呢？NPC 的离职率呢？客服平均响应时间呢？”\n王总额头开始冒汗。小宇宙在一旁小声补充：“响应时间 3 分 47 秒。留存率 0.3%。离职率没法算，因为员工都被困在系统里，不许离职。”\n“王总。”你叹了口气，“您连自己的系统都不了解，怎么好意思给我们定 KPI？”\n“注意你的态度，小林！”王总拍案而起。\n“我的态度，取决于您的数据。”你平静地说。',
+    choices:[
+      {t:'（迎着他的目光，把证据摆上长桌）',to:'final_choices',gain:{calm:1}}
+    ]
+  },
+  counter2:{
+    chapter:'第四章 · 终面',
+    title:'账本',
+    text:'王总的二郎腿放了下来。\n“王总。”你继续说，“小周的合同、医院的日志、小宇宙那句‘全公司就我一个人在岗’，还有 VIP 柜台前‘已售 0 份’的价目表——我都留着。”\n“我复盘了您的项目。结论是：除了您，没人赚到。”\n“所以我想当面请教：这个无限流，到底是给员工做的，还是给您自己做的？”\n会议室里安静得能听见投影仪的散热声。\n王总慢慢坐直了身子。那一刻，你忽然觉得，坐在长桌尽头的不是老板，而是一个 KPI 的化身。',
+    choices:[
+      {t:'（把复印的合同、日志截图，一样一样摆上桌）',to:'final_choices',gain:{calm:1}}
+    ]
+  },
+  final_choices:{
+    chapter:'第四章 · 终面',
+    title:'终面 · 对决',
+    text:'王总：“小林，注意你的——”\n“我的什么？KPI 吗？”你打断他，把一沓证据拍在桌上：小周的合同、医院的系统日志、客服唯一的录音、还有那一整墙的『禁止摸鱼』。\n“王总，作为这个项目最后的‘玩家’，我对您的复盘，只有一个问题。”\n“您这公司，还有没有救？”\n王总缓缓站起来。整栋楼的光，都聚在了这张长桌上。\n你听见自己的心跳，和投影仪里风扇转动的声音。\n这一题，没有标准答案。但你的答案，将决定所有人——包括你自己的去向。',
+    choices:[
+      {t:'“劳、动、仲、裁。”把轰散 HR 的那个词，对准王总。',to:'end_zhongcai',deadlyIf:s=>s.stats.calm<3,deadlyTo:'die_final_zhongcai_fail'},
+      {t:'“王总，这系统 bug 这么多，测试没做完吧？——先聊聊你们谁给谁定 KPI。”',to:'end_moyu',requires:s=>s.stats.slacker>=2},
+      {t:'“我选择留下来。在这里继续‘无限’打工。”',to:'end_loop'},
+      {t:'（把证据全撕了，图个痛快）',to:'die_evidence',deadly:true},
+      {t:'“王总，我是来通知您的：贵司涉嫌无证经营‘无限流’，请配合调查。”',to:'end_bianzhi',secret:true,requires:s=>s.flags.contract&&s.flags.log&&s.stats.calm>=3}
+    ]
+  },
+
+  /* ============ 死亡结局 ============ */
+  die_punch:{
+    ending:true, chapter:'死亡 · 序章', title:'拳打主神',
+    tag:'【死亡 · 拳打主神】',
+    text:'你的拳头还没碰到神的衣角，就停在了半空。\n不是你不想打——是时间停了。\n主神歪着头看你，像在看一只试图咬主人的猫：“亲，攻击主神，违反《玩家守则》第一条。”\n“惩罚：永久封号。”\n蓝屏闪过，你连惨叫都没来得及发出。\n主神空间的公告栏上，多了一行小字：『玩家 987654321 号，因暴力抗神，已永久注销。请勿模仿。』\n——据说，那个号后来被当成反面教材，印进了每一期的新手引导。'
+  },
+  die_tv:{
+    ending:true, chapter:'死亡 · 午夜凶铃', title:'电视的复仇',
+    tag:'【死亡 · 电视的复仇】',
+    text:'椅子砸碎电视的瞬间，你听见了一声极轻的叹息。\n不是贞子的。是电视的。\n雪花炸开，千万根玻璃碴子像倒放的雨，把你钉在了原地。\n贞子从碎片里爬出来，拍了拍身上的灰，叹了口气：“我这台电视，用了三百年了。你是第一个砸它的。”\n“工伤。”她翻出手机，给 HR 发了条消息，“客户损坏公物，从复活币里扣。”\n你在失去意识前，最后看见的是屏幕上的一行字：『本电视由无限宇宙科技提供，暴力损坏需照价赔偿。』\n赔偿金额：你剩下的所有命。'
+  },
+  die_walkout:{
+    ending:true, chapter:'死亡 · 午夜凶铃', title:'门是假的',
+    tag:'【死亡 · 门是假的】',
+    text:'你转身大步走向门口，手搭上门把——\n门把是凉的。门也是凉的。\n整扇门，都是凉的。\n你回头，贞子正用一种“又来了”的眼神看着你：“亲，副本的门，都是贴图。您不会以为能走吧？”\n你不信邪，使劲一推。\n门没开。你穿过去了——穿进了墙里。\n无限宇宙的物理引擎从未考虑过“玩家卡进墙里”这种情况，于是它选择了最省事的处理方式：删除。\n你消失的那一秒，贞子在待办清单上画了个勾：『第 48 项：杀死玩家。已完成（被动）。』\n积分到账：+5。她终于凑够了奶茶钱。'
+  },
+  die_hospital_death:{
+    ending:true, chapter:'死亡 · 恐怖医院', title:'真·躺平',
+    tag:'【死亡 · 真·躺平】',
+    text:'你躺下了。\n这次没有复活提示，没有“换一种死法”的梗。\n鬼护士小张探出头，看了你一眼，熟练地在系统里点了『确认死亡』。\n广播温柔响起：“3 号床林小满，已选择放弃治疗。祝您来世好运。”\n没有人悲伤。在这家医院，主动选择死亡的患者，你是本周第 47 个。\n你的尸体被推进太平间。冰柜上贴着新标签：『欠费 250，已用遗体抵扣。』\n——据说，后来这张标签被某个实习生当成段子发了朋友圈，收获了 250 个赞。'
+  },
+  die_hospital_charge:{
+    ending:true, chapter:'死亡 · 恐怖医院', title:'108 个收费口',
+    tag:'【死亡 · 108 个收费口】',
+    text:'你抢过印章，朝大门狂奔。\n走廊突然变宽了。\n一扇、两扇、十扇……一百零八扇收费窗口在两侧次第亮起，每一扇后面都坐着一个鬼护士，齐刷刷地朝你伸手：\n“缴费。”\n“缴费。”\n“缴费。”\n你跑得越快，窗口越多。它们像热带雨林的藤蔓，把你缠在中间。\n最后一扇窗口里，小张笑得很甜：“亲，您欠费 250，加上抢印章的罚款，一共 250000。”\n“缴不起？”她递出一张易拉宝，“院内贷款，日息 0.0001%。”\n你签下了名字。\n然后，你就永远留在这里缴费了。\n——据说，你的工号后来排到了 109 号。'
+  },
+  die_hospital_ram:{
+    ending:true, chapter:'死亡 · 恐怖医院', title:'门是铁的',
+    tag:'【死亡 · 门是铁的】',
+    text:'你卯足劲，朝大门撞去。\n门没动。你动了——以更快的速度弹了回来。\n倒地时你才看清，那根本不是门，是一面贴了门图案的墙。\n墙上有字：『本院所有出口均为装饰，实际出口请咨询收费处。』\n你摸着后脑勺的包，想爬起来。\n可你的身体越来越轻，视线越来越暗。\n最后听见的，是广播的声音：“恭喜玩家触发隐藏成就——『头铁』。奖励：来世投胎为铁门。”'
+  },
+  die_hospital_gas:{
+    ending:true, chapter:'死亡 · 恐怖医院', title:'灭火器的正确用法',
+    tag:'【死亡 · 毒气警报】',
+    text:'灭火器砸开锁的瞬间，你听见了“叮”的一声。\n不是锁开了。是警报响了。\n天花板上的喷头齐刷刷转过来，对准了你。\n你以为是水。\n是消毒水。\n高浓度的、能把活人洗成标本的消毒水。\n你在白雾里倒下时，最后想到的是：贞子说过，预算有限。\n——所以医院省了保安，只装了消毒系统。\n据说，你的遗骸后来被做成了人体标本，陈列在走廊尽头，标签写着：『请勿暴力破坏公物』。'
+  },
+  die_mall_rob:{
+    ending:true, chapter:'死亡 · 积分商城', title:'塑料刀',
+    tag:'【死亡 · 塑料刀】',
+    text:'你举起塑料刀，大喊：“打劫！”\n商城安静了三秒。\n然后，所有鬼店员同时笑出了声。\n“亲，”主神上线，语气里带着憋不住的笑意，“您手里那把刀，是商城 9.9 包邮的道具。”\n“它唯一能砍的，是价签。”\n下一秒，商城的保安系统启动。你被一道光柱定在原地，塑料刀在你手里化成了一摊塑料水。\n“抢劫商城，”主神说，“扣除全部积分，并永久封禁账号。”\n你看着自己的身体一点点像素化，最后消失成一串乱码。\n——据说，那把塑料刀后来被回收重铸，变成了一个警示牌：『本商品仅供娱乐，请勿用于打劫。』'
+  },
+  die_mall_tear:{
+    ending:true, chapter:'死亡 · 积分商城', title:'违约金',
+    tag:'【死亡 · 违约金】',
+    text:'你把保密协议撕成碎片，往空中一抛。\n碎片还没落地，主神的声音就响了，语气冰冷，没有“亲”：\n“玩家 987654321 号，您已违反《保密协议》第七条。”\n“违约金：扣除全部积分，收回现实世界的年终奖，并——”\n“永久留在系统里，充抵违约金。”\n你想说话，发现自己发不出声。\n你想动，发现身体正在变成一串代码。\n最后一眼，你看见大屏上滚动着：『违约金抵扣进度：0.00001%。预计还清时间：永恒。』\n——据说，你后来成了商城里最久的一件商品，标签写着：『违约玩家，概不退换。』'
+  },
+  die_final_quit:{
+    ending:true, chapter:'死亡 · 终面', title:'辞职即离职',
+    tag:'【死亡 · 辞职即离职】',
+    text:'你起身，朝门口走。\n王总没有拦你。他只是笑了笑，按下了桌上的一个按钮。\n“小林啊，”他说，“你忘了一件事。”\n“你不是在辞职。你是在放弃复活权。”\n你伸手去推门，门把在你手里化成了灰。\n整间会议室开始坍塌——不是物理意义上的坍塌，是代码层面的删除。\n“在无限宇宙，”王总的声音从四面八方传来，“没有离职，只有注销。”\n你在代码的洪流里消失，最后听见的是系统提示音：\n『玩家 987654321 号，已主动注销。工牌已回收，工位已清理。』\n——据说，你的工位后来被一个新人占了，他在抽屉里发现了你没喝完的半杯咖啡，还温着。'
+  },
+  die_final_zhongcai_fail:{
+    ending:true, chapter:'死亡 · 终面', title:'气势不够',
+    tag:'【死亡 · 气势不够】',
+    text:'你深吸一口气，喊出那四个字：\n“劳、动、仲——”\n声音卡在了嗓子眼里。\n不是你不想喊完。是你的手在抖，你的声音在颤，你的冷静撑不住这四个字的重量。\n王总笑了。\n“小林啊，”他站起身，走到你面前，“仲裁这两个字，不是谁都能喊的。”\n“你连自己的心跳都压不住，拿什么压我？”\n他伸出一根手指，点在你的额头上。\n你感觉自己的意识像被拔了电源的显示器，一点一点暗下去。\n最后听见的，是王总温和的声音：“终面未通过。回去等通知吧——不用等了。”'
+  },
+  die_wire:{
+    ending:true, chapter:'死亡 · 序章', title:'误拔电线',
+    tag:'【死亡 · 误拔电线】',
+    text:'你拔掉了那根线。\n电视屏幕先是闪了闪，然后蓝屏，然后——\n然后你就什么都不知道了。\n主神空间的公告栏滚动出一条新消息：『玩家 987654321 号，因自行拆卸设备电源，触发电击保护程序。设备已报废，玩家已注销。』\n贞子在旁边看得目瞪口呆：“他从哪看出来有电源线的？”\n——无限宇宙科技的技术日志记录了这次事故：问题归类为“用户误操作”，罚款对象为用户。'
+  },
+  die_afk:{
+    ending:true, chapter:'死亡 · 序章', title:'挂机惩罚',
+    tag:'【死亡 · 挂机惩罚】',
+    text:'你站在原地，一动不动。\n主神的声音幽幽响起：“亲，检测到玩家已三分钟未进行任何操作。系统判定为挂机。”\n“根据《玩家守则》第 47 条，挂机超过三分钟，视为自动放弃游戏资格。”\n“资格回收中——”\n你甚至还没来得及反驳，就化作一串 404 错误代码，飘散在空气中。\n贞子在旁边说：“这人是不是睡着了？”\n主神：“不，他是第一个因为发呆被系统优化的玩家。”'
+  },
+  die_evidence:{
+    ending:true, chapter:'死亡 · 终面', title:'撕毁证据',
+    tag:'【死亡 · 撕毁证据】',
+    text:'你把所有证据——合同、日志、录音、截图——统统撕碎，抛向空中。\n王总愣了两秒，然后大笑：“小林！我欣赏你！”\n你愣住了。\n“你撕了证据，就等于没有了证据。没有证据，就等于什么都没有发生过。”\n他拍拍你的肩，“从今天起，你升职为‘无限宇宙’的首席产品经理。月薪翻倍——当然，是在系统里。”\n你想反抗，发现自己的嘴在动，但发不出声。\n你想离开，发现自己的腿在走，但离不开会议室。\n你变成了系统的一部分。\n——后来，新员工培训材料里多了一页：《论证据的重要性，以及撕毁它的代价》。'
+  },
+
+  /* ============ 结局 ============ */
+  end_zhongcai:{
+    ending:true, chapter:'结局 · 其一', title:'劳动仲裁之光',
+    tag:'【结局一 · 劳动仲裁之光】',
+    text:'那四个字落地的瞬间，整栋楼的灯全灭了。\n不，是整个“无限宇宙”。系统亮起一条红色预警：『检测到大规模违规用工行为，正在同步证据至劳动监察部门。』\n你微微一笑。小宇宙这次超常发挥——它把公司后台的全部数据，一键打包，发给了它早就想发送的对象。\n一个个副本亮起灯来：电视里的贞子放下周报，医院里的老刘放下瓜子，门口的保安摘下帽子，朝着天空敬了个礼。\n“王总。”你说，“仲裁庭见。”\n三个月后。无限宇宙科技有限公司因大规模违规用工、非法限制员工人身自由，被立案调查。王总在年度总结会上，人生第一次体验了“被优化”。\n而你，林小满，被全体玩家推举为新任主神。\n你上任后的第一件事，是改了系统公告：\n『即日起，每日工作时间 8 小时。加班需提前申请，加班费按劳动法。』\n『复活币改为长期有效。安全警示教育片，永久免费。』\n公告下方，贞子——不，是小周，抢到了第一条评论：\n“终于等到这一天。”'
+  },
+  end_moyu:{
+    ending:true, chapter:'结局 · 其二', title:'摸鱼之神',
+    tag:'【结局二 · 摸鱼之神】',
+    text:'“王总。”你掰着指头数，“您这套系统，从上线到现在，玩家投诉率 100%，NPC 离职意愿 200%，客服就一位，还是兼职的。”\n“我建议，从今天起，我们换个玩法。”\n“玩法？”\n“对。”你露出一个久经沙场的微笑，“反向 KPI。”\n说着，你把一张表格推到王总面前，上面写着：\n『KPI 考核对象：王守一。指标：每日 18:00 前准点下班。未达标一次，扣一次口红包——不，扣一天年假。』\n王总的脸涨成了猪肝色：“你这是要审我？”\n“不。”你纠正，“这是为了公司的可持续发展。老板按时下班，员工才能按时下班。”\n小宇宙当场哭了出来：“终于……终于有人给我布置合理的目标了。”\n你成了系统管理员，权限比王总还高一级。每天睡到自然醒，远程打卡，摸鱼摸到了流量的尽头。\n业内尊称你为——摸鱼之神。\n王总后来逢人便说：“我们公司的企业文化，是狼性和人性并存。”\n没人信。'
+  },
+  end_loop:{
+    ending:true, chapter:'结局 · 其三', title:'真·无限循环',
+    tag:'【结局三 · 真·无限循环】',
+    text:'你看着王总，忽然笑了。\n“王总，恭喜。”你说，“我留下来。”\n王总喜出望外：“我就知道……我没有看错人！”\n“您当然没看错。”你走到那张属于自己的工位旁，坐下。先补了一个觉。这不是普通的觉，这是一位连续加班 26 小时、又大战过 HR 与厉鬼的员工的觉。\n睡醒，继续“打副本”。\n日子一天天过去。玩家们渐渐发现，副本里多了一个老玩家：他来者不拒，什么副本都接，什么 KPI 都扛。\n他嘴里常念叨的一句话是：\n“反正出去也是加班。”\n现实世界里的房贷，没有复活币。这里的加班，至少还能用满减券。\n某个深夜，小宇宙悄悄问你：“亲，您真的不出去吗？”\n你说：“出什么出。这可是我带薪的。”\n于是你成了这个无限流里，最绕不开、也最看不透的一道风景。\n——以及，全勤榜上永恒的、孤独的第一名。'
+  },
+  end_bianzhi:{
+    ending:true, chapter:'隐藏结局', title:'上岸', secret:true,
+    tag:'【隐藏结局 · 上岸】',
+    text:'你从怀里掏出一个证件。皮面黑色，烫金小字。\n“王守一同志。”你声音平静，“我是无限流行业监管办公室的。您涉嫌无证经营无限流业务、虚构主神身份、非法挪用员工休息时间。请配合调查。”\n王总的笑容凝固在脸上，像一张没贴好的宣传海报。\n“你怎么——怎么可能——”\n“您想知道我为什么有合同、有日志、有录音？”你笑了笑，“因为您的‘玩家 987654321 号’，就是监管办派来的体验官。”\n原来如此。\n你不是被卷入的倒霉蛋。你是主动报名的。当社畜当得太久，你想亲眼看看：这些神乎其神的“无限流”公司，究竟把员工当成了什么。\n你看到了。\n三个月后，《无限宇宙》被勒令整改，全体“玩家”恢复意识，工伤认定一个不落。\n王总在公开听证会上深情感慨：“我也曾是打工人。我懂你们。”\n台下嘘声一片。\n而你，林小满，回到了工位——这一次，工牌上写着：无限流行业监管办公室 · 稽查一科。\n电话响起：“林科，新线索。有个公司用‘快穿’的名义搞非法劳务派遣。”\n“走。”你拿起外套，“又到了上班时间。”'
+  }
+};
+
+const ENDING_META = [
+  {id:'end_zhongcai', name:'结局一 · 劳动仲裁之光', desc:'用四个字，终结一场无限暴政。'},
+  {id:'end_moyu', name:'结局二 · 摸鱼之神', desc:'反向 KPI，摸到流量的尽头。'},
+  {id:'end_loop', name:'结局三 · 真·无限循环', desc:'出什么出，这可是带薪的。'},
+  {id:'end_bianzhi', name:'隐藏结局 · 上岸', desc:'稽查一科。又到了上班时间。'},
+  {id:'die_punch', name:'死亡 · 拳打主神', desc:'暴力抗神，永久封号。'},
+  {id:'die_tv', name:'死亡 · 电视的复仇', desc:'砸坏公物，照价赔偿。'},
+  {id:'die_walkout', name:'死亡 · 门是假的', desc:'副本的门，都是贴图。'},
+  {id:'die_hr_outtalk', name:'死亡 · 说不过 HR', desc:'嘴炮不够，死于逻辑闭环。'},
+  {id:'die_hospital_death', name:'死亡 · 真·躺平', desc:'欠费 250，遗体抵扣。'},
+  {id:'die_hospital_charge', name:'死亡 · 108 个收费口', desc:'缴不起，就留下。'},
+  {id:'die_hospital_ram', name:'死亡 · 门是铁的', desc:'来世投胎为铁门。'},
+  {id:'die_hospital_gas', name:'死亡 · 毒气警报', desc:'请勿暴力破坏公物。'},
+  {id:'die_mall_rob', name:'死亡 · 塑料刀', desc:'本商品仅供娱乐。'},
+  {id:'die_mall_tear', name:'死亡 · 违约金', desc:'违约玩家，概不退换。'},
+  {id:'die_final_quit', name:'死亡 · 辞职即离职', desc:'没有离职，只有注销。'},
+  {id:'die_final_zhongcai_fail', name:'死亡 · 气势不够', desc:'冷静不足，仲裁未成。'},
+  {id:'die_wire', name:'死亡 · 误拔电线', desc:'乱拔插头，当场触电。'},
+  {id:'die_afk', name:'死亡 · 挂机惩罚', desc:'离线挂机，自动禁赛。'},
+  {id:'die_evidence', name:'死亡 · 撕毁证据', desc:'销毁证据，原地封号。'}
+];
+
+/* ================= 状态与存档 ================= */
+const SAVE_KEY='wuxian_save_v1', DONE_KEY='wuxian_endings_v1', CHECKPOINT_KEY='wuxian_checkpoints_v1';
+let state = { node:'start', stats:{calm:0,talk:0,slacker:0}, flags:{contract:false,log:false} };
+let typing=false, typeTimer=null;
+
+function save(){ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
+function loadSave(){ try{ return JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){ return null; } }
+function clearSave(){ localStorage.removeItem(SAVE_KEY); }
+function getDone(){ try{ return JSON.parse(localStorage.getItem(DONE_KEY))||[]; }catch(e){ return []; } }
+function addDone(id){
+  const d = getDone();
+  const isNew = !d.includes(id);
+  if(isNew){ d.push(id); localStorage.setItem(DONE_KEY, JSON.stringify(d)); }
+  return isNew;
+}
+
+/* —— 存档点 —— */
+const CHECKPOINTS=['tv','ch2_start','ch3_start','final_meeting'];
+function getCheckpoints(){ try{ return JSON.parse(localStorage.getItem(CHECKPOINT_KEY))||[]; }catch(e){ return []; } }
+function setCheckpoint(nodeId){
+  const cps=getCheckpoints();
+  if(!cps.includes(nodeId)){ cps.push(nodeId); localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(cps)); }
+}
+function loadCheckpoint(){
+  const cps=getCheckpoints();
+  if(!cps.length) return null;
+  // 找到进度最远的存档点
+  let best=null;
+  for(const cp of cps){
+    if(!best || CHECKPOINTS.indexOf(cp)>CHECKPOINTS.indexOf(best)) best=cp;
+  }
+  return best;
+}
+
+/* ================= 成就系统 ================= */
+const ACHV_KEY='wuxian_achv_v1';
+const ACHIEVEMENTS=[
+  {id:'first_day', name:'入职成功', desc:'开始第一次上班。欢迎加入无限宇宙，工牌在楼下前台领取。'},
+  {id:'overtime_10', name:'全勤战士', desc:'累计开始 10 次流程。你对上班这件事是认真的。', hidden:true},
+  {id:'dagua', name:'打卡狂魔', desc:'在主神空间，鬼使神差地按下了打卡机的按钮。', hidden:true},
+  {id:'max_calm', name:'人间清醒', desc:'单次流程中冷静达到满值 5。泰山崩于前而先改简历。'},
+  {id:'max_talk', name:'舌灿莲花', desc:'单次流程中嘴炮达到满值 5。厉鬼听了都想给你递辞呈。'},
+  {id:'max_slacker', name:'摸鱼宗师', desc:'单次流程中摸鱼达到满值 5。你已经摸到了流量的尽头。'},
+  {id:'balanced', name:'六边形社畜', desc:'单次流程中冷静、嘴炮、摸鱼全部达到 3。'},
+  {id:'first_death', name:'初次阵亡', desc:'第一次死在副本里。别灰心，复活币当日有效。'},
+  {id:'deaths_5', name:'死性不改', desc:'累计死亡 5 次。无限流里最不缺的就是第二次机会。'},
+  {id:'all_deaths', name:'亡命收藏家', desc:'集齐全部 12 种死法。这份履历没有公司敢要。', hidden:true},
+  {id:'first_clear', name:'首次通关', desc:'抵达任意一个正式结局，活着看到了终章。'},
+  {id:'all_end', name:'真·卷王', desc:'集齐全部 14 个结局。主神空间已被你榨干。', hidden:true}
+];
+function getAchvMeta(){
+  try{ return JSON.parse(localStorage.getItem(ACHV_KEY))||{unlocked:[],deaths:0,runs:0,visited:{}}; }
+  catch(e){ return {unlocked:[],deaths:0,runs:0,visited:{}}; }
+}
+let achvMeta = getAchvMeta();
+const toastQueue=[];
+let toastBusy=false;
+function updateAchvCount(){
+  $('achv-count').textContent = achvMeta.unlocked.length+'/'+ACHIEVEMENTS.length;
+}
+function unlockAchv(id){
+  if(achvMeta.unlocked.includes(id)) return;
+  achvMeta.unlocked.push(id);
+  localStorage.setItem(ACHV_KEY, JSON.stringify(achvMeta));
+  updateAchvCount();
+  const a=ACHIEVEMENTS.find(x=>x.id===id);
+  toastQueue.push(a);
+  pumpToast();
+}
+function pumpToast(){
+  if(toastBusy || !toastQueue.length) return;
+  toastBusy=true;
+  const a=toastQueue.shift();
+  $('toast-name').textContent='「'+a.name+'」';
+  const t=$('achv-toast');
+  t.classList.add('show');
+  try{ Sound.sfx.secret(); }catch(e){}
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>{toastBusy=false;pumpToast();},500); },2400);
+}
+/* 各类触发检查 */
+function checkStatsAchv(){
+  const s=state.stats;
+  if((s.calm||0)>=5) unlockAchv('max_calm');
+  if((s.talk||0)>=5) unlockAchv('max_talk');
+  if((s.slacker||0)>=5) unlockAchv('max_slacker');
+  if((s.calm||0)>=3&&(s.talk||0)>=3&&(s.slacker||0)>=3) unlockAchv('balanced');
+}
+function checkNodeAchv(nodeId){
+  if(!achvMeta.visited[nodeId]){
+    achvMeta.visited[nodeId]=true;
+    localStorage.setItem(ACHV_KEY, JSON.stringify(achvMeta));
+  }
+  if(nodeId==='dagua') unlockAchv('dagua');
+}
+function checkEndingAchv(nodeId){
+  const done=getDone();
+  if(nodeId.startsWith('die_')){
+    achvMeta.deaths++;
+    localStorage.setItem(ACHV_KEY, JSON.stringify(achvMeta));
+    unlockAchv('first_death');
+    if(achvMeta.deaths>=5) unlockAchv('deaths_5');
+    if(ENDING_META.filter(m=>m.id.startsWith('die_')).every(m=>done.includes(m.id))) unlockAchv('all_deaths');
+  }else{
+    unlockAchv('first_clear');
+    if(done.length>=ENDING_META.length) unlockAchv('all_end');
+  }
+}
+
+/* ================= 界面逻辑 ================= */
+const $ = id => document.getElementById(id);
+const screens = {title:$('title-screen'), game:$('game-screen')};
+
+function showScreen(name){
+  Object.values(screens).forEach(s=>s.classList.remove('active'));
+  screens[name].classList.add('active');
+  const isEnding = name==='game' && STORY[state.node] && STORY[state.node].ending;
+  Sound.bgm(name==='title' ? 'title' : (isEnding ? 'ending' : 'game'));
+}
+
+function renderDots(){
+  const map=[['calm',$('dots-calm')],['talk',$('dots-talk')],['slacker',$('dots-slacker')]];
+  for(const [k,el] of map){
+    el.innerHTML='';
+    for(let i=0;i<5;i++){
+      const d=document.createElement('i');
+      if(i<Math.min(5,state.stats[k]||0)) d.className='on';
+      el.appendChild(d);
+    }
+  }
+}
+
+function floatGain(gain, anchor){
+  if(!gain) return;
+  const names={calm:['冷静','var(--cyan)'],talk:['嘴炮','var(--gold)'],slacker:['摸鱼','#c9a86a']};
+  const r = anchor ? anchor.getBoundingClientRect() : {left:innerWidth/2,top:innerHeight/2};
+  let i=0;
+  for(const k in gain){
+    for(let n=0;n<gain[k];n++){
+      const el=document.createElement('div');
+      el.className='float-gain';
+      el.style.color=names[k][1];
+      el.textContent='+'+names[k][0];
+      el.style.left=(r.left+ (anchor? 200 : 0))+'px';
+      el.style.top=(r.top+i*22)+'px';
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(),1200);
+      i++;
+    }
+  }
+}
+
+function renderNode(id){
+  const node = STORY[id];
+  if(!node){ console.error('剧情节点不存在: '+id); return; }
+  state.node = id;
+  save();
+  if(!node.ending && CHECKPOINTS.includes(id)) setCheckpoint(id);
+  if(node.ending) checkEndingAchv(id); else checkNodeAchv(id);
+  $('hud-chapter').textContent = node.chapter;
+  $('node-chapter').textContent = node.chapter;
+  $('node-title').textContent = node.title;
+  $('choices').innerHTML='';
+  $('continue-hint').textContent='';
+  renderDots();
+
+  /* —— 演出层：场景、粒子、章节过场、面板入场 —— */
+  const sceneKey = node.ending ? id : sceneKeyFor(id);
+  Stage.setMode(sceneKey);
+  Stage.play(sceneKey);
+  $('hud-scene').textContent = node.ending ? '全剧终' : (SCENE_NAMES[sceneKey]||'主神空间');
+  if(node.chapter!==lastChapter){ showVeil(node.chapter); lastChapter=node.chapter; }
+  const paperEl=document.querySelector('.paper');
+  paperEl.classList.remove('enter'); void paperEl.offsetWidth; paperEl.classList.add('enter');
+  paperEl.scrollTop=0;
+
+  if(node.ending){
+    Sound.bgm('ending');
+    Sound.sfx[node.secret?'secret':'ending']();
+  }else{
+    Sound.sfx.turn();
+  }
+
+  const tagEl = document.querySelector('.end-tag'); if(tagEl) tagEl.remove();
+  const actEl = document.querySelector('.end-actions'); if(actEl) actEl.remove();
+  const newBadge = document.querySelector('.new-badge'); if(newBadge) newBadge.remove();
+
+  if(node.ending){
+    const isNew = addDone(id);
+    const tag=document.createElement('div');
+    tag.className='end-tag'+(node.secret?' secret':'')+(id.startsWith('die_')?' danger':'');
+    tag.textContent = node.tag;
+    if(isNew){ const b=document.createElement('span'); b.className='new-badge'; b.textContent='◆ 已收入回廊'; tag.appendChild(b); }
+    $('node-title').before(tag);
+  }
+
+  Voice.sayText(node.text);
+  typewrite(node.text, ()=>{
+    if(node.ending){
+      const actions=document.createElement('div');
+      actions.className='end-actions';
+      const cp=loadCheckpoint();
+      const btnLabel = id.startsWith('die_') && cp ? '从存档点复活' : '再上一天班';
+      actions.innerHTML='<button id="ea-again">'+btnLabel+'</button><button id="ea-title">回到标题</button>';
+      $('choices').appendChild(actions);
+      $('ea-again').onclick=()=>{
+        if(id.startsWith('die_') && cp){ respawnAtCheckpoint(); }
+        else{ startGame(); }
+      };
+      $('ea-title').onclick=()=>toTitle();
+      setTimeout(()=>paperEl.scrollTop=paperEl.scrollHeight,60);
+    }else{
+      const choices = node.choices.filter(c=>!c.requires || c.requires(state));
+      const box=$('choices');
+      choices.forEach((c,idx)=>{
+        const b=document.createElement('button');
+        b.className='choice'+(c.secret?' secret':'');
+        b.textContent=c.t;
+        b.addEventListener('mouseenter',()=>Sound.sfx.hover());
+        b.onclick=(e)=>{
+          Sound.sfx.select();
+          // 先用选择前的属性判定是否触发死亡，再应用属性变化
+          const willDie = c.deadlyIf && c.deadlyIf(state);
+          if(c.gain) for(const k in c.gain){ state.stats[k]+=c.gain[k]; floatGain(c.gain,b); }
+          if(c.setFlag){ state.flags[c.setFlag]=true; }
+          renderDots();
+          checkStatsAchv();
+          b.classList.add('picked');
+          const dest = willDie ? (c.deadlyTo||c.to) : c.to;
+          setTimeout(()=>renderNode(dest),260);
+        };
+        box.appendChild(b);
+        setTimeout(()=>{b.classList.add('show');paperEl.scrollTop=paperEl.scrollHeight;}, 180*idx+120);
+      });
+      setTimeout(()=>paperEl.scrollTop=paperEl.scrollHeight,120);
+    }
+  });
+}
+
+function typewrite(text, done){
+  typing=true;
+  const el=$('node-text');
+  el.innerHTML='<span class="typed"></span><span class="cursor"></span>';
+  const typed=el.querySelector('.typed');
+  const cursor=el.querySelector('.cursor');
+  let i=0;
+  let lastTick=0;
+  clearInterval(typeTimer);
+  const step=()=>{
+    typed.textContent = text.slice(0,++i);
+    const now=performance.now();
+    if(now-lastTick>150){ lastTick=now; Sound.sfx.type(); }
+    if(i>=text.length){ finish(); return; }
+  };
+  typeTimer=setInterval(step,24);
+  function finish(){
+    clearInterval(typeTimer);
+    typed.textContent=text;
+    cursor.remove();
+    typing=false;
+    $('continue-hint').textContent = STORY[state.node].ending ? '— 全 终 —' : '请 抉 择';
+    done&&done();
+  }
+  el.parentElement.onclick=(e)=>{
+    if(typing){
+      clearInterval(typeTimer);
+      typed.textContent=text;
+      cursor.remove();
+      typing=false;
+      $('continue-hint').textContent = STORY[state.node].ending ? '— 全 终 —' : '请 抉 择';
+      done&&done();
+    }
+  };
+}
+
+/* ================= 场景映射 / 章节过场 / 标题 ================= */
+const SCENE_NAMES={void:'主神空间',tv:'午夜凶铃 · 老屋',hospital:'恐怖医院',mall:'积分商城',meeting:'项目复盘会'};
+let lastChapter=null;
+const SETS={
+  void:new Set(['start','rule','loop_gag','company','draw','skill_talk','void_walk','dagua','company2','mission','die_punch','die_afk','die_wire']),
+  tv:new Set(['tv','unplug','offer','hurry','first_talk','task_list','resume','weekly','company3','hr_prep','hr_observe','hr_fight','hr_retort','hr_contract','boss_defeat','after_boss','die_tv','die_walkout','die_hr_outtalk','die_wire']),
+  hospital:new Set(['ch2_start','gag_nurse','ward','basement','cashier','die_gag','yibao','escape','locker','payroll','doubt','die_hospital_death','die_hospital_charge','die_hospital_ram','die_hospital_gas']),
+  mall:new Set(['ch3_start','mall_buy','mall_vip','mall_complain','ch3_main','fine','truth','truth_direct','truth2','truth3','die_mall_rob','die_mall_tear']),
+  meeting:new Set(['final_meeting','offer_d','counter','counter2','final_choices','die_final_quit','die_final_zhongcai_fail','die_evidence'])
+};
+function sceneKeyFor(id){
+  for(const k in SETS){ if(SETS[k].has(id)) return k; }
+  return 'void';
+}
+let veilTimer=null;
+function showVeil(chapter){
+  const parts=chapter.split(' · ');
+  $('chapter-veil').querySelector('.veil-inner').innerHTML=
+    '<div class="veil-c">'+parts[0]+'</div>'+
+    '<div class="veil-line"></div>'+
+    (parts[1]?'<div class="veil-s">'+parts[1]+'</div>':'');
+  const veil=$('chapter-veil');
+  void veil.offsetWidth;
+  veil.classList.add('show');
+  clearTimeout(veilTimer);
+  veilTimer=setTimeout(()=>veil.classList.remove('show'),2000);
+}
+/* 鼠标视差：远景轻微跟随 */
+addEventListener('mousemove',e=>{
+  if(e.pointerType==='touch') return;
+  const x=e.clientX/innerWidth-.5, y=e.clientY/innerHeight-.5;
+  const set=$('scene-set');
+  set.style.transform='translate('+(x*-16)+'px,'+(y*-10)+'px)';
+  document.querySelector('.nebula').style.transform='translate('+(x*-26)+'px,'+(y*-16)+'px)';
+});
+
+function startGame(){
+  lastChapter=null;
+  state={node:'start',stats:{calm:0,talk:0,slacker:0},flags:{contract:false,log:false}};
+  save();
+  achvMeta.runs++;
+  localStorage.setItem(ACHV_KEY, JSON.stringify(achvMeta));
+  unlockAchv('first_day');
+  if(achvMeta.runs>=10) unlockAchv('overtime_10');
+  showScreen('game');
+  renderNode('start');
+}
+function continueGame(){
+  const s=loadSave();
+  if(!s) return;
+  state=s;
+  if(!state.flags) state.flags={contract:false,log:false};
+  showScreen('game');
+  renderNode(state.node);
+}
+function respawnAtCheckpoint(){
+  const cp=loadCheckpoint();
+  if(!cp) return startGame();
+  state.node=cp;
+  save();
+  showScreen('game');
+  renderNode(cp);
+}
+function toTitle(){
+  clearInterval(typeTimer);
+  Voice.stop();
+  lastChapter=null;
+  Stage.setMode('title');
+  Stage.clear();
+  showScreen('title');
+  refreshTitle();
+}
+function refreshTitle(){
+  $('btn-continue').disabled = !loadSave();
+  const cp=loadCheckpoint();
+  const btn=$('btn-respawn');
+  if(cp){ btn.disabled=false; btn.style.display='inline-block'; }
+  else{ btn.disabled=true; btn.style.display='none'; }
+}
+
+$('btn-start').onclick=startGame;
+$('btn-continue').onclick=continueGame;
+$('btn-respawn').onclick=respawnAtCheckpoint;
+$('btn-title').onclick=toTitle;
+
+$('btn-gallery').onclick=()=>{
+  const done=getDone();
+  const list=$('gallery-list');
+  list.innerHTML='';
+  ENDING_META.forEach(m=>{
+    const got=done.includes(m.id);
+    const div=document.createElement('div');
+    div.className='ending-card'+(got?'':' locked');
+    div.innerHTML = got
+      ? '<div class="et">'+m.name+'</div><div class="ed">'+m.desc+'</div>'
+      : '<div class="et">？？？</div><div class="ed">此结局尚未抵达。或许，你需要更冷静，或是留意那些盖了章的小纸片。</div>';
+    list.appendChild(div);
+  });
+  $('gallery').classList.add('show');
+};
+$('gallery-close').onclick=()=>$('gallery').classList.remove('show');
+$('gallery').onclick=e=>{ if(e.target.id==='gallery') $('gallery').classList.remove('show'); };
+
+/* —— 成就殿堂 —— */
+$('btn-achv').onclick=()=>{
+  const list=$('achv-list');
+  list.innerHTML='';
+  ACHIEVEMENTS.forEach(a=>{
+    const got=achvMeta.unlocked.includes(a.id);
+    const div=document.createElement('div');
+    div.className='ending-card'+(got?' achv-done':' locked');
+    div.innerHTML = got
+      ? '<div class="et">◆ '+a.name+'</div><div class="ed">'+a.desc+'</div>'
+      : '<div class="et">'+(a.hidden?'？？？':'☆ 未解锁')+'</div><div class="ed">'+(a.hidden?'隐藏成就。继续上班，答案藏在副本里。':a.desc)+'</div>';
+    list.appendChild(div);
+  });
+  $('achv').classList.add('show');
+};
+$('achv-close').onclick=()=>$('achv').classList.remove('show');
+$('achv').onclick=e=>{ if(e.target.id==='achv') $('achv').classList.remove('show'); };
+
+/* ================= 音频：手势解锁 / 开关 / 通用按钮音 ================= */
+function firstGesture(){
+  if(!Sound.unlocked && document.querySelector('.screen.active').id==='title-screen') Sound.bgm('title');
+  Sound.unlock();
+}
+['pointerdown','click','keydown','touchstart'].forEach(ev=>
+  document.addEventListener(ev,firstGesture,true));
+function syncAudioBtns(){
+  const b=$('btn-bgm'), s=$('btn-sfx'), v=$('btn-voice');
+  b.textContent='乐 · '+(Sound.bgmOn?'开':'关');
+  b.classList.toggle('off',!Sound.bgmOn);
+  s.textContent='音 · '+(Sound.sfxOn?'开':'关');
+  s.classList.toggle('off',!Sound.sfxOn);
+  v.textContent='声 · '+(Voice.on?'开':'关');
+  v.classList.toggle('off',!Voice.on);
+  v.style.display=Voice.supported?'':'none';
+}
+$('btn-bgm').onclick=()=>{ Sound.toggleBgm(); syncAudioBtns(); };
+$('btn-sfx').onclick=()=>{ Sound.toggleSfx(); syncAudioBtns(); };
+$('btn-voice').onclick=()=>{
+  const on=Voice.toggle();
+  syncAudioBtns();
+  if(on && screens.game.classList.contains('active') && STORY[state.node]) Voice.sayText(STORY[state.node].text);
+};
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('button');
+  if(!btn) return;
+  if(btn.classList.contains('choice')) return;
+  if(btn.closest('.audio-ctl')) return;
+  Sound.sfx.click();
+});
+syncAudioBtns();
+
+updateAchvCount();
+refreshTitle();
+</script>
+</body>
+</html>
